@@ -18,54 +18,52 @@ async function startServer() {
 
   app.use(express.json({ limit: '50mb' }));
 
-  // SaaS Proxy Routes
-  const proxyRequest = async (req: express.Request, res: express.Response, targetPath: string) => {
-    const targetUrl = `http://aibigtree.com${targetPath}`;
+  // SaaS & Gemini Proxy Routes
+  app.all("/api/*", async (req, res) => {
+    const url = req.url;
+    
     try {
-      console.log(`Backend: Proxying ${req.method} to ${targetUrl}...`);
-      const response = await fetch(targetUrl, {
-        method: req.method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: req.method !== "GET" ? JSON.stringify(req.body) : undefined,
-      });
+      if (url.includes("/api/gemini")) {
+        if (!process.env.GEMINI_API_KEY) {
+          return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+        }
 
-      const data = await response.json();
-      res.status(response.status).json(data);
-    } catch (error: any) {
-      console.error(`SaaS Proxy Error (${targetPath}):`, error);
-      res.status(500).json({ error: "SaaS 代理转发失败", details: error.message });
-    }
-  };
+        const { model, contents, config } = req.body;
+        console.log(`Local Proxy: Calling Gemini model ${model}`);
+        
+        const response = await genAI.models.generateContent({
+          model,
+          contents: contents.contents || contents,
+          config: config
+        });
 
-  app.post("/api/tool/launch", (req, res) => proxyRequest(req, res, "/api/tool/launch"));
-  app.post("/api/tool/verify", (req, res) => proxyRequest(req, res, "/api/tool/verify"));
-  app.post("/api/tool/consume", (req, res) => proxyRequest(req, res, "/api/tool/consume"));
-
-  // API Routes
-  app.post("/api/gemini", async (req, res) => {
-    try {
-      if (!process.env.GEMINI_API_KEY) {
-        return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+        return res.json(response);
       }
 
-      const { model, contents, config } = req.body;
-      
-      console.log(`Backend: Calling Gemini API for model ${model}...`);
-      
-      const response = await genAI.models.generateContent({
-        model,
-        contents: contents.contents || contents,
-        config: config
-      });
+      if (url.includes("/api/tool/")) {
+        const targetUrl = `http://aibigtree.com${url}`;
+        console.log(`Local Proxy: Forwarding to SaaS ${targetUrl}`);
+        
+        const saasResponse = await fetch(targetUrl, {
+          method: req.method,
+          headers: { "Content-Type": "application/json" },
+          body: req.method !== "GET" ? JSON.stringify(req.body) : undefined,
+        });
 
-      res.json(response);
+        const data = await saasResponse.json();
+        return res.status(saasResponse.status).json(data);
+      }
+
+      res.status(404).json({ error: "API Route Not Found" });
     } catch (error: any) {
-      console.error("Backend Gemini Error:", error);
-      res.status(500).json({ error: error.message });
+      console.error("Local Proxy Error:", error);
+      res.status(500).json({ error: error.message || "Internal Server Error" });
     }
   });
+
+  // Keep existing image generation route if needed, or unify it.
+  // Given the user request, they want everything under /api to be handled by the proxy logic.
+  // I'll group them for clarity.
   app.post("/api/images/generations", async (req, res) => {
     try {
       const gptKey = process.env.GPTKEY;
