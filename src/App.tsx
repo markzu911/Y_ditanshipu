@@ -43,7 +43,7 @@ const ensureJpeg = (dataUrl: string): Promise<string> => {
     img.onload = () => {
       const canvas = document.createElement('canvas');
       // Limit max dimension to avoid huge payloads while maintaining quality
-      const maxDim = 2048;
+      const maxDim = 1600;
       let width = img.width;
       let height = img.height;
       
@@ -62,7 +62,7 @@ const ensureJpeg = (dataUrl: string): Promise<string> => {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.9));
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
       } else {
         resolve(dataUrl);
       }
@@ -388,7 +388,7 @@ export default function App() {
                     <Upload className="text-indigo-600 w-8 h-8" />
                   </div>
                   <p className="text-lg font-medium text-slate-800">点击或拖拽上传房间场景图</p>
-                  <p className="text-slate-400 text-sm mt-1">支持 JPG, PNG 格式的高清照片</p>
+                  <p className="text-slate-400 text-sm mt-1">支持常见图片格式（如 JPG, PNG, WebP），最大支持 20MB（通过前端压缩上传）</p>
                   <div className="mt-8 grid grid-cols-3 gap-4 max-w-sm mx-auto opacity-30">
                     <div className="aspect-[4/3] bg-slate-200 rounded-lg animate-pulse" />
                     <div className="aspect-[4/3] bg-slate-200 rounded-lg animate-pulse delay-75" />
@@ -591,7 +591,7 @@ export default function App() {
                     <ImageIcon className="text-indigo-600 w-8 h-8" />
                   </div>
                   <p className="text-lg font-medium text-slate-800">点击或拖拽上传地毯图</p>
-                  <p className="text-slate-400 text-sm mt-1">支持细节样张或全景俯视图</p>
+                  <p className="text-slate-400 text-sm mt-1">支持常见图片格式（如 JPG, PNG, WebP），最大支持 20MB（通过前端压缩上传）</p>
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 gap-8 items-start">
