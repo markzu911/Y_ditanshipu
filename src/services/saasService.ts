@@ -62,3 +62,19 @@ export async function consumeIntegral(userId: string, toolId: string): Promise<S
   });
   return response.json();
 }
+
+export interface SaaSImageUploadResponse {
+  success: boolean;
+  url?: string;
+  images?: { url: string; fileName: string }[];
+  message?: string;
+}
+
+export async function uploadImage(userId: string, base64: string, source: "result" | "input" = "result"): Promise<SaaSImageUploadResponse> {
+  const response = await fetch("/api/upload/image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, base64, source }),
+  });
+  return response.json();
+}

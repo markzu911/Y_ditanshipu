@@ -29,6 +29,7 @@ import {
   launchTool, 
   verifyIntegral, 
   consumeIntegral,
+  uploadImage,
   SaaSUser
 } from "./services/saasService";
 
@@ -232,18 +233,25 @@ export default function App() {
       const carpetBase64 = carpetImage.split(",")[1];
       
       // We start all tasks as individual promises and update state as they finish
-      const panoPromise = generateCarpetFitting(roomBase64, carpetBase64, prompt, params).then(img => setResultImage(img));
-      const detailPromise = generateCarpetDetail(carpetBase64, carpetAnalysis, params).then(img => setDetailImage(img));
+      const panoPromise = generateCarpetFitting(roomBase64, carpetBase64, prompt, params);
+      const detailPromise = generateCarpetDetail(carpetBase64, carpetAnalysis, params);
       
-      const allPromises = [panoPromise, detailPromise];
+      const promises: Promise<string | null>[] = [panoPromise, detailPromise];
 
       if (params.hasModel) {
-        const modelTopPromise = generateCarpetModelInteraction(roomBase64, carpetBase64, prompt, params).then(img => setModelImage(img));
-        const modelFrontPromise = generateCarpetModelFrontal(roomBase64, carpetBase64, prompt, params).then(img => setModelFrontImage(img));
-        allPromises.push(modelTopPromise, modelFrontPromise);
+        promises.push(generateCarpetModelInteraction(roomBase64, carpetBase64, prompt, params));
+        promises.push(generateCarpetModelFrontal(roomBase64, carpetBase64, prompt, params));
       }
 
-      await Promise.all(allPromises);
+      const results = await Promise.all(promises);
+      const [panoImg, detailImg, modelTopImg, modelFrontImg] = results;
+
+      setResultImage(panoImg);
+      setDetailImage(detailImg);
+      if (params.hasModel) {
+        setModelImage(modelTopImg);
+        setModelFrontImage(modelFrontImg);
+      }
 
       // Consume integral after successful generation
       if (userId && toolId) {
@@ -251,6 +259,17 @@ export default function App() {
           const res = await consumeIntegral(userId, toolId);
           if (res.success && res.data) {
             setIntegral(res.data.currentIntegral);
+
+            // Upload generated images to SaaS
+            const imagesToUpload = results.filter(Boolean) as string[];
+
+            for (const base64 of imagesToUpload) {
+              try {
+                await uploadImage(userId, base64, "result");
+              } catch (err) {
+                console.error("Failed to upload image to SaaS:", err);
+              }
+            }
           }
         } catch (error) {
           console.error("Failed to consume integral:", error);

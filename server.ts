@@ -40,7 +40,7 @@ async function startServer() {
         return res.json(response);
       }
 
-      if (url.includes("/api/tool/")) {
+      if (url.includes("/api/tool/") || url.includes("/api/upload/")) {
         const targetUrl = `http://aibigtree.com${url}`;
         console.log(`Local Proxy: Forwarding to SaaS ${targetUrl}`);
         

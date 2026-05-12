@@ -38,8 +38,8 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json(response);
     }
 
-    // 3. Handle /api/tool/* Proxy to SaaS
-    if (url.includes("/api/tool/")) {
+    // 3. Handle /api/tool/* and /api/upload/* Proxy to SaaS
+    if (url.includes("/api/tool/") || url.includes("/api/upload/")) {
       const targetPath = url.startsWith("/api") ? url : `/api${url}`;
       const targetUrl = `http://aibigtree.com${targetPath}`;
       console.log(`SaaS Proxy: Forwarding to ${targetUrl}`);
