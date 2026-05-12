@@ -287,21 +287,21 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100">
       {/* Header */}
       <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm flex items-center shrink-0">
-        <div className="max-w-5xl mx-auto px-8 w-full flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 w-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
               <div className="w-4 h-4 bg-white rounded-sm rotate-45"></div>
             </div>
-            <h1 className="text-xl font-bold tracking-tight">AI 地毯试铺助手</h1>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight">AI 地毯试铺助手</h1>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 sm:gap-6">
             {integral !== null && (
-              <div className="hidden sm:flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
-                <Sparkles className="w-4 h-4 text-indigo-600" />
-                <span className="text-sm font-bold text-indigo-700">积分: {integral}</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-indigo-50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-indigo-100">
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 h-4 text-indigo-600" />
+                <span className="text-[10px] sm:text-sm font-bold text-indigo-700">积分: {integral}</span>
               </div>
             )}
-            <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
+            <nav className="hidden lg:flex items-center gap-8 text-sm font-medium">
               {["场景分析", "地毯匹配", "生成预览", "结果预览"].map((label, idx) => {
                 const steps: Step[] = ["room", "carpet", "generate", "result"];
                 const isActive = currentStep === steps[idx];
@@ -328,11 +328,19 @@ export default function App() {
                 );
               })}
             </nav>
+            <div className="lg:hidden flex items-center">
+              <div className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-bold border border-indigo-100">
+                {currentStep === "room" && "步骤 1/4"}
+                {currentStep === "carpet" && "步骤 2/4"}
+                {currentStep === "generate" && "步骤 3/4"}
+                {currentStep === "result" && "步骤 4/4"}
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-8 py-12">
+      <main className="max-w-5xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
         <AnimatePresence mode="wait">
           {currentStep === "room" && (
             <motion.div
@@ -343,19 +351,19 @@ export default function App() {
               className="space-y-8"
             >
               <div className="text-center space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight text-slate-800">第 1 步：选择或上传场景</h2>
-                <p className="text-slate-500">AI 将根据您的房间照片或选择的装修风格进行智能分析</p>
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-800">第 1 步：选择或上传场景</h2>
+                <p className="text-sm sm:text-base text-slate-500">AI 将根据您的房间照片或选择的装修风格进行智能分析</p>
               </div>
 
-              <div className="flex justify-center mb-8">
-                <div className="bg-white p-1 rounded-xl border border-slate-200 flex shadow-sm">
+              <div className="flex justify-center mb-6 sm:mb-8">
+                <div className="bg-white p-1 rounded-xl border border-slate-200 flex shadow-sm w-full sm:w-auto max-w-xs sm:max-w-none mx-auto sm:mx-0">
                   <button 
                     onClick={() => {
                         setUsePredefinedStyle(false);
                         setRoomAnalysis(null);
                         setRoomImage(null);
                     }}
-                    className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${!usePredefinedStyle ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
+                    className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${!usePredefinedStyle ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
                   >
                     上传房间照片
                   </button>
@@ -365,7 +373,7 @@ export default function App() {
                         setRoomAnalysis(null);
                         setRoomImage(null);
                     }}
-                    className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${usePredefinedStyle ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
+                    className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${usePredefinedStyle ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
                   >
                     选择装修风格
                   </button>
@@ -387,8 +395,8 @@ export default function App() {
                   <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                     <Upload className="text-indigo-600 w-8 h-8" />
                   </div>
-                  <p className="text-lg font-medium text-slate-800">点击或拖拽上传房间场景图</p>
-                  <p className="text-slate-400 text-sm mt-1">支持常见图片格式（如 JPG, PNG, WebP），最大支持 20MB（通过前端压缩上传）</p>
+                  <p className="text-base sm:text-lg font-medium text-slate-800">点击或拖拽上传房间场景图</p>
+                  <p className="text-slate-400 text-[10px] sm:text-sm mt-1">支持常见图片格式（如 JPG, PNG, WebP），最大支持 20MB（通过前端压缩上传）</p>
                   <div className="mt-8 grid grid-cols-3 gap-4 max-w-sm mx-auto opacity-30">
                     <div className="aspect-[4/3] bg-slate-200 rounded-lg animate-pulse" />
                     <div className="aspect-[4/3] bg-slate-200 rounded-lg animate-pulse delay-75" />
@@ -578,7 +586,7 @@ export default function App() {
               {!carpetImage ? (
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="group relative border-2 border-dashed border-slate-200 hover:border-indigo-400 transition-all rounded-2xl p-12 text-center cursor-pointer bg-slate-50/50 hover:bg-white"
+                  className="group relative border-2 border-dashed border-slate-200 hover:border-indigo-400 transition-all rounded-2xl p-8 sm:p-12 text-center cursor-pointer bg-slate-50/50 hover:bg-white"
                 >
                   <input 
                     type="file" 
@@ -590,8 +598,8 @@ export default function App() {
                   <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                     <ImageIcon className="text-indigo-600 w-8 h-8" />
                   </div>
-                  <p className="text-lg font-medium text-slate-800">点击或拖拽上传地毯图</p>
-                  <p className="text-slate-400 text-sm mt-1">支持常见图片格式（如 JPG, PNG, WebP），最大支持 20MB（通过前端压缩上传）</p>
+                  <p className="text-base sm:text-lg font-medium text-slate-800">点击或拖拽上传地毯图</p>
+                  <p className="text-slate-400 text-[10px] sm:text-sm mt-1">支持常见图片格式（如 JPG, PNG, WebP），最大支持 20MB（通过前端压缩上传）</p>
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 gap-8 items-start">
@@ -723,8 +731,8 @@ export default function App() {
                   返回上一步
                 </button>
                 <div className="text-center">
-                  <h2 className="text-2xl font-bold text-slate-800">最后一步：渲染配置</h2>
-                  <p className="text-xs text-slate-400 mt-1">确认分析细节并开启 AI 极速渲染</p>
+                  <h2 className="text-xl sm:text-2xl font-bold text-slate-800">最后一步：渲染配置</h2>
+                  <p className="text-[10px] sm:text-xs text-slate-400 mt-1">确认分析细节并开启 AI 极速渲染</p>
                 </div>
               </div>
               
@@ -950,7 +958,7 @@ export default function App() {
                 </div>
               )}
 
-              <div className={`grid md:grid-cols-2 xl:grid-cols-4 gap-4 ${genError ? 'opacity-30 pointer-events-none' : ''}`}>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 ${genError ? 'opacity-30 pointer-events-none' : ''}`}>
                 {/* Main View */}
                 <div className="space-y-2">
                   <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] text-center">全景试铺效果 (Panoramic)</h3>
@@ -1163,9 +1171,9 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      <footer className="max-w-5xl mx-auto px-8 py-10 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 uppercase tracking-widest shrink-0 font-sans">
-        <div>© 2026 AI CARPET VISUALIZER SYSTEM</div>
-        <div>Design Precision: 100% | Rendering Engine: V2.5.0</div>
+      <footer className="max-w-5xl mx-auto px-4 sm:px-8 py-10 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-[9px] sm:text-[11px] text-slate-400 uppercase tracking-widest shrink-0 font-sans">
+        <div className="text-center sm:text-left">© 2026 AI CARPET VISUALIZER SYSTEM</div>
+        <div className="text-center sm:text-right">Design Precision: 100% | Rendering Engine: V2.5.0</div>
       </footer>
     </div>
   );
