@@ -29,8 +29,8 @@ import {
   launchTool, 
   verifyIntegral, 
   consumeIntegral,
-  uploadImage,
-  SaaSUser
+  SaaSUser,
+  uploadResultImage
 } from "./services/saasService";
 
 type Step = "room" | "carpet" | "generate" | "result";
@@ -233,25 +233,30 @@ export default function App() {
       const carpetBase64 = carpetImage.split(",")[1];
       
       // We start all tasks as individual promises and update state as they finish
-      const panoPromise = generateCarpetFitting(roomBase64, carpetBase64, prompt, params);
-      const detailPromise = generateCarpetDetail(carpetBase64, carpetAnalysis, params);
+      const panoPromise = generateCarpetFitting(roomBase64, carpetBase64, prompt, params).then(img => {
+        setResultImage(img);
+        return img;
+      });
+      const detailPromise = generateCarpetDetail(carpetBase64, carpetAnalysis, params).then(img => {
+        setDetailImage(img);
+        return img;
+      });
       
-      const promises: Promise<string | null>[] = [panoPromise, detailPromise];
+      const allPromises: Promise<string>[] = [panoPromise, detailPromise];
 
       if (params.hasModel) {
-        promises.push(generateCarpetModelInteraction(roomBase64, carpetBase64, prompt, params));
-        promises.push(generateCarpetModelFrontal(roomBase64, carpetBase64, prompt, params));
+        const modelTopPromise = generateCarpetModelInteraction(roomBase64, carpetBase64, prompt, params).then(img => {
+          setModelImage(img);
+          return img;
+        });
+        const modelFrontPromise = generateCarpetModelFrontal(roomBase64, carpetBase64, prompt, params).then(img => {
+          setModelFrontImage(img);
+          return img;
+        });
+        allPromises.push(modelTopPromise, modelFrontPromise);
       }
 
-      const results = await Promise.all(promises);
-      const [panoImg, detailImg, modelTopImg, modelFrontImg] = results;
-
-      setResultImage(panoImg);
-      setDetailImage(detailImg);
-      if (params.hasModel) {
-        setModelImage(modelTopImg);
-        setModelFrontImage(modelFrontImg);
-      }
+      const generatedImages = await Promise.all(allPromises);
 
       // Consume integral after successful generation
       if (userId && toolId) {
@@ -259,20 +264,14 @@ export default function App() {
           const res = await consumeIntegral(userId, toolId);
           if (res.success && res.data) {
             setIntegral(res.data.currentIntegral);
-
-            // Upload generated images to SaaS
-            const imagesToUpload = results.filter(Boolean) as string[];
-
-            for (const base64 of imagesToUpload) {
-              try {
-                await uploadImage(userId, base64, "result");
-              } catch (err) {
-                console.error("Failed to upload image to SaaS:", err);
-              }
+            
+            // Upload result images to SaaS for persistence in "My Gallery"
+            if (generatedImages.length > 0) {
+              await uploadResultImage(userId, toolId, generatedImages);
             }
           }
         } catch (error) {
-          console.error("Failed to consume integral:", error);
+          console.error("Failed to consume integral or upload image:", error);
         }
       }
     } catch (error: any) {

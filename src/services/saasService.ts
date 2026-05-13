@@ -66,15 +66,92 @@ export async function consumeIntegral(userId: string, toolId: string): Promise<S
 export interface SaaSImageUploadResponse {
   success: boolean;
   url?: string;
-  images?: { url: string; fileName: string }[];
+  source?: string;
+  savedToRecords?: boolean;
+  recordId?: string;
   message?: string;
 }
 
-export async function uploadImage(userId: string, base64: string, source: "result" | "input" = "result"): Promise<SaaSImageUploadResponse> {
-  const response = await fetch("/api/upload/image", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, base64, source }),
-  });
-  return response.json();
+/**
+ * Utility to convert base64 to Blob
+ */
+function base64ToBlob(base64: string): Blob {
+  const [header, data] = base64.split(",");
+  const mimeMatch = header.match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : "image/png";
+  const binary = atob(data);
+  const array = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    array[i] = binary.charCodeAt(i);
+  }
+  return new Blob([array], { type: mime });
+}
+
+/**
+ * Upload result images to SaaS OSS following the Triple-Step Flow:
+ * 1. Get direct-token
+ * 2. PUT to OSS
+ * 3. Commit to database
+ */
+export async function uploadResultImage(userId: string, toolId: string, imageData: string | string[]): Promise<SaaSImageUploadResponse> {
+  const images = Array.isArray(imageData) ? imageData : [imageData];
+  const results: SaaSImageUploadResponse[] = [];
+
+  for (const [index, base64] of images.entries()) {
+    try {
+      const blob = base64ToBlob(base64);
+      const fileName = `result_${Date.now()}_${index}.png`;
+
+      // 1. Get direct-token
+      const tokenRes = await fetch("/api/upload/direct-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          toolId,
+          source: "result",
+          fileName,
+          mimeType: blob.type,
+          fileSize: blob.size,
+        }),
+      });
+      const tokenData = await tokenRes.json();
+
+      if (!tokenData.success) {
+        throw new Error(tokenData.message || "Failed to get upload token");
+      }
+
+      // 2. PUT to OSS
+      const ossRes = await fetch(tokenData.uploadUrl, {
+        method: tokenData.method || "PUT",
+        headers: tokenData.headers || { "Content-Type": blob.type },
+        body: blob,
+      });
+
+      if (!ossRes.ok) {
+        throw new Error("Failed to upload image to OSS");
+      }
+
+      // 3. Commit to database
+      const commitRes = await fetch("/api/upload/commit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          toolId,
+          source: "result",
+          objectKey: tokenData.objectKey,
+          fileSize: blob.size,
+        }),
+      });
+      const commitData = await commitRes.json();
+      results.push(commitData);
+    } catch (error: any) {
+      console.error(`Failed to upload image ${index}:`, error);
+      results.push({ success: false, message: error.message });
+    }
+  }
+
+  // Return the first one or a summary
+  return results[0] || { success: false, message: "No images to upload" };
 }

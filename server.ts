@@ -24,10 +24,12 @@ async function startServer() {
     
     try {
       if (url.includes("/api/gemini")) {
-        if (!process.env.GEMINI_API_KEY) {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
           return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
         }
 
+        const genAI = new GoogleGenAI({ apiKey });
         const { model, contents, config } = req.body;
         console.log(`Local Proxy: Calling Gemini model ${model}`);
         

@@ -1,8 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-
 export default async function handler(req: any, res: any) {
   // 1. CORS Headers
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -21,10 +18,12 @@ export default async function handler(req: any, res: any) {
   try {
     // 2. Handle /api/gemini
     if (url.includes("/api/gemini")) {
-      if (!GEMINI_API_KEY) {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
         return res.status(500).json({ error: "Server Error: GEMINI_API_KEY is not configured" });
       }
 
+      const genAI = new GoogleGenAI({ apiKey });
       const { model, contents, config } = req.body;
       console.log(`Gemini Proxy: Calling model ${model}`);
 
