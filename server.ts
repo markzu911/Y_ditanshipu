@@ -16,7 +16,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: '20mb' }));
+  app.use(express.json({ limit: '50mb' }));
 
   // SaaS & Gemini Proxy Routes
   app.all("/api/*", async (req, res) => {

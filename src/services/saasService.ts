@@ -54,11 +54,15 @@ export async function verifyIntegral(userId: string, toolId: string): Promise<Sa
   return response.json();
 }
 
-export async function consumeIntegral(userId: string, toolId: string): Promise<SaaSConsumeResponse> {
+export async function consumeIntegral(userId: string, toolId: string, requestId?: string): Promise<SaaSConsumeResponse> {
   const response = await fetch("/api/tool/consume", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, toolId }),
+    body: JSON.stringify({ 
+      userId, 
+      toolId,
+      requestId: requestId || crypto.randomUUID() // Recommended idempotency key
+    }),
   });
   return response.json();
 }
