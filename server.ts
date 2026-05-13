@@ -46,10 +46,17 @@ async function startServer() {
         const targetUrl = `http://aibigtree.com${url}`;
         console.log(`Local Proxy: Forwarding to SaaS ${targetUrl}`);
         
+        const headers: any = {
+          "Content-Type": req.headers["content-type"] || "application/json",
+        };
+        if (req.headers["authorization"]) headers["Authorization"] = req.headers["authorization"];
+
+        const isJson = headers["Content-Type"]?.includes("application/json");
+
         const saasResponse = await fetch(targetUrl, {
           method: req.method,
-          headers: { "Content-Type": "application/json" },
-          body: req.method !== "GET" ? JSON.stringify(req.body) : undefined,
+          headers: headers,
+          body: req.method !== "GET" ? (isJson ? JSON.stringify(req.body) : (req as any)) : undefined,
         });
 
         const data = await saasResponse.json();

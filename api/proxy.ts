@@ -43,12 +43,20 @@ export default async function handler(req: any, res: any) {
       const targetUrl = `http://aibigtree.com${targetPath}`;
       console.log(`SaaS Proxy: Forwarding to ${targetUrl}`);
 
+      // Forward headers, but let fetch/axios handle content-length for binary
+      const headers: any = {
+        "Content-Type": req.headers["content-type"] || "application/json",
+      };
+      if (req.headers["authorization"]) headers["Authorization"] = req.headers["authorization"];
+
+      const isJson = headers["Content-Type"].includes("application/json");
+      
       const saasResponse = await fetch(targetUrl, {
         method: req.method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: req.method !== "GET" ? JSON.stringify(req.body) : undefined,
+        headers: headers,
+        // If it's JSON and parsed, stringify it. Otherwise, we might need a way to pass binary.
+        // In Vercel, requests are already buffers if body-parser is on, OR streams.
+        body: req.method !== "GET" ? (isJson ? JSON.stringify(req.body) : req) : undefined,
       });
 
       const saasData = await saasResponse.json();
