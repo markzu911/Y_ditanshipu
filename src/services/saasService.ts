@@ -107,31 +107,38 @@ export async function saveResultUrls(userId: string, toolId: string, imageUrls: 
 
 export async function uploadResultImage(userId: string, toolId: string, imageData: string | string[], idempotencyKey?: string): Promise<SaaSImageUploadResponse> {
   const base64s = Array.isArray(imageData) ? imageData : [imageData];
-  
-  try {
-    const response = await fetch("/api/upload/save-result", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId,
-        toolId,
-        source: "result",
-        base64s,
-        idempotencyKey: idempotencyKey || createRequestId(),
-      }),
-    });
-    
-    const result = await response.json();
-    
-    if (result.success && result.savedToRecords) {
-      console.log(`Images successfully saved to gallery. RecordId: ${result.recordId || result.image?.recordId}`);
-    } else {
-      console.warn(`Images uploaded but not saved to gallery:`, result.message);
+  const rootId = idempotencyKey || createRequestId();
+  const results: SaaSImageUploadResponse[] = [];
+
+  for (let i = 0; i < base64s.length; i++) {
+    const base64 = base64s[i];
+    try {
+      const response = await fetch("/api/upload/save-result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          toolId,
+          source: "result",
+          base64s: [base64],
+          idempotencyKey: `${rootId}-${i}`,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && result.savedToRecords) {
+        console.log(`Image ${i} successfully saved to gallery. RecordId: ${result.recordId || result.image?.recordId}`);
+      } else {
+        console.warn(`Image ${i} uploaded but not saved to gallery:`, result.message);
+      }
+      results.push(result);
+    } catch (error: any) {
+      console.error(`Failed to upload image ${i} via save-result:`, error);
+      results.push({ success: false, message: error.message });
     }
-    
-    return result;
-  } catch (error: any) {
-    console.error("Failed to upload images via save-result:", error);
-    return { success: false, message: error.message };
   }
+  
+  // Return the first result (or a summary if needed) for compatibility
+  return results[0] || { success: false, message: "No images to upload" };
 }
