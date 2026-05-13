@@ -300,7 +300,7 @@ export default function App() {
             
             // Upload result images to SaaS for persistence in "My Gallery"
             if (generatedImages.length > 0) {
-              await uploadResultImage(userId, toolId, generatedImages);
+              await uploadResultImage(userId, toolId, generatedImages, requestId);
             }
           }
         } catch (error) {

@@ -79,22 +79,8 @@ export interface SaaSImageUploadResponse {
     recordId: string;
     savedToRecords: boolean;
   };
+  images?: any[];
   message?: string;
-}
-
-/**
- * Utility to convert base64 to Blob
- */
-function base64ToBlob(base64: string): Blob {
-  const [header, data] = base64.split(",");
-  const mimeMatch = header.match(/:(.*?);/);
-  const mime = mimeMatch ? mimeMatch[1] : "image/png";
-  const binary = atob(data);
-  const array = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    array[i] = binary.charCodeAt(i);
-  }
-  return new Blob([array], { type: mime });
 }
 
 export async function saveResultUrls(userId: string, toolId: string, imageUrls: string[], idempotencyKey?: string): Promise<SaaSImageUploadResponse> {
@@ -112,98 +98,33 @@ export async function saveResultUrls(userId: string, toolId: string, imageUrls: 
   return response.json();
 }
 
-/**
- * Upload result images to SaaS OSS following the Triple-Step Flow:
- * 1. Get direct-token
- * 2. PUT to OSS
- * 3. Commit to database
- */
-export async function uploadResultImage(userId: string, toolId: string, imageData: string | string[]): Promise<SaaSImageUploadResponse> {
-  const images = Array.isArray(imageData) ? imageData : [imageData];
-  const results: SaaSImageUploadResponse[] = [];
-
-  for (const [index, base64] of images.entries()) {
-    try {
-      const blob = base64ToBlob(base64);
-      const fileName = `result_${Date.now()}_${index}.png`;
-
-      // 1. Get direct-token
-      const tokenRes = await fetch("/api/upload/direct-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          toolId,
-          source: "result",
-          fileName,
-          mimeType: blob.type,
-          fileSize: blob.size,
-        }),
-      });
-      const tokenData = await tokenRes.json();
-
-      if (!tokenData.success) {
-        throw new Error(tokenData.message || "Failed to get upload token");
-      }
-
-      // 2. PUT to OSS (Use uploadUrl or proxyUploadUrl per spec)
-      const uploadUrl = tokenData.uploadUrl || tokenData.proxyUploadUrl || tokenData.ossUploadUrl;
-      const headers = {
-        ...tokenData.headers,
-        "Content-Type": blob.type,
-      };
-
-      const ossRes = await fetch(uploadUrl, {
-        method: tokenData.method || "PUT",
-        headers: headers,
-        body: blob,
-      });
-
-      if (!ossRes.ok) {
-        throw new Error("Failed to upload image to OSS");
-      }
-
-      let finalResult: SaaSImageUploadResponse;
-
-      // 3. Handle Commit based on strategy
-      if (tokenData.uploadStrategy === "proxy-put" || tokenData.savedToRecordsOnPut) {
-        // If it's a proxy upload, the response from PUT already contains the commit result
-        try {
-          finalResult = await ossRes.json();
-        } catch (e) {
-          // Fallback if proxy didn't return JSON but was successful
-          finalResult = { success: true, savedToRecords: true, url: tokenData.url };
-        }
-      } else {
-        // Step 3: Explicit commit for raw OSS direct uploads
-        const commitRes = await fetch("/api/upload/commit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId,
-            toolId,
-            source: "result",
-            objectKey: tokenData.objectKey,
-            fileSize: blob.size,
-          }),
-        });
-        finalResult = await commitRes.json();
-      }
-      
-      // Documentation Stability Check: verify savedToRecords and recordId
-      if (finalResult.success && finalResult.savedToRecords) {
-        console.log(`Image ${index} successfully saved to gallery. RecordId: ${finalResult.recordId || finalResult.image?.recordId}`);
-      } else {
-        console.warn(`Image ${index} uploaded but not saved to gallery:`, finalResult.message);
-      }
-      
-      results.push(finalResult);
-    } catch (error: any) {
-      console.error(`Failed to upload image ${index}:`, error);
-      results.push({ success: false, message: error.message });
+export async function uploadResultImage(userId: string, toolId: string, imageData: string | string[], idempotencyKey?: string): Promise<SaaSImageUploadResponse> {
+  const base64s = Array.isArray(imageData) ? imageData : [imageData];
+  
+  try {
+    const response = await fetch("/api/upload/save-result", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        toolId,
+        source: "result",
+        base64s,
+        idempotencyKey: idempotencyKey || crypto.randomUUID(),
+      }),
+    });
+    
+    const result = await response.json();
+    
+    if (result.success && result.savedToRecords) {
+      console.log(`Images successfully saved to gallery. RecordId: ${result.recordId || result.image?.recordId}`);
+    } else {
+      console.warn(`Images uploaded but not saved to gallery:`, result.message);
     }
+    
+    return result;
+  } catch (error: any) {
+    console.error("Failed to upload images via save-result:", error);
+    return { success: false, message: error.message };
   }
-
-  // Return the first one or a summary
-  return results[0] || { success: false, message: "No images to upload" };
 }
