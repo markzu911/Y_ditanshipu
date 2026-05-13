@@ -54,6 +54,13 @@ export async function verifyIntegral(userId: string, toolId: string): Promise<Sa
   return response.json();
 }
 
+export function createRequestId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export async function consumeIntegral(userId: string, toolId: string, requestId?: string): Promise<SaaSConsumeResponse> {
   const response = await fetch("/api/tool/consume", {
     method: "POST",
@@ -61,7 +68,7 @@ export async function consumeIntegral(userId: string, toolId: string, requestId?
     body: JSON.stringify({ 
       userId, 
       toolId,
-      requestId: requestId || crypto.randomUUID() // Recommended idempotency key
+      requestId: requestId || createRequestId()
     }),
   });
   return response.json();
@@ -92,7 +99,7 @@ export async function saveResultUrls(userId: string, toolId: string, imageUrls: 
       toolId,
       source: "result",
       imageUrls,
-      idempotencyKey: idempotencyKey || crypto.randomUUID(),
+      idempotencyKey: idempotencyKey || createRequestId(),
     }),
   });
   return response.json();
@@ -110,7 +117,7 @@ export async function uploadResultImage(userId: string, toolId: string, imageDat
         toolId,
         source: "result",
         base64s,
-        idempotencyKey: idempotencyKey || crypto.randomUUID(),
+        idempotencyKey: idempotencyKey || createRequestId(),
       }),
     });
     

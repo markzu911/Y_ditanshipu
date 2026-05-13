@@ -30,7 +30,8 @@ import {
   verifyIntegral, 
   consumeIntegral,
   SaaSUser,
-  uploadResultImage
+  uploadResultImage,
+  createRequestId
 } from "./services/saasService";
 
 type Step = "room" | "carpet" | "generate" | "result";
@@ -293,7 +294,7 @@ export default function App() {
       // Consume integral after successful generation
       if (userId && toolId) {
         try {
-          const requestId = crypto.randomUUID();
+          const requestId = createRequestId();
           const res = await consumeIntegral(userId, toolId, requestId);
           if (res.success && res.data) {
             setIntegral(res.data.currentIntegral);
