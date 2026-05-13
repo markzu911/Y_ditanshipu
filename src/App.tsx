@@ -112,6 +112,8 @@ export default function App() {
   const [toolId, setToolId] = useState<string>("");
   const [integral, setIntegral] = useState<number | null>(null);
   const [userInfo, setUserInfo] = useState<SaaSUser | null>(null);
+  const [saasContext, setSaasContext] = useState<string>("");
+  const [saasPrompt, setSaasPrompt] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,7 +121,7 @@ export default function App() {
   React.useEffect(() => {
     const handleSaaSInit = async (event: MessageEvent) => {
       if (event.data && event.data.type === 'SAAS_INIT') {
-        let { userId: uid, toolId: tid } = event.data;
+        let { userId: uid, toolId: tid, context: sContext, prompt: sPrompt } = event.data;
         
         // Filter out "null" or "undefined" strings as per spec
         uid = (uid === "null" || uid === "undefined") ? "" : (uid || "");
@@ -128,6 +130,10 @@ export default function App() {
         if (uid && tid) {
           setUserId(uid);
           setToolId(tid);
+          
+          if (sContext) setSaasContext(sContext);
+          if (Array.isArray(sPrompt)) setSaasPrompt(sPrompt);
+
           try {
             const res = await launchTool(uid, tid);
             if (res.success && res.data) {
@@ -248,7 +254,13 @@ export default function App() {
         }
       }
 
-      const prompt = await generateResultPrompt(roomAnalysis, carpetAnalysis, !usePredefinedStyle);
+      const prompt = await generateResultPrompt(
+        roomAnalysis, 
+        carpetAnalysis, 
+        !usePredefinedStyle,
+        saasContext,
+        saasPrompt
+      );
       const roomBase64 = roomImage ? roomImage.split(",")[1] : null;
       const carpetBase64 = carpetImage.split(",")[1];
       

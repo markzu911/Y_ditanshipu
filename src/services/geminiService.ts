@@ -165,7 +165,13 @@ export async function analyzeCarpet(base64Image: string): Promise<string> {
   });
 }
 
-export async function generateResultPrompt(roomAnalysis: string, carpetAnalysis: string, isUploadedRoom: boolean): Promise<string> {
+export async function generateResultPrompt(
+  roomAnalysis: string, 
+  carpetAnalysis: string, 
+  isUploadedRoom: boolean,
+  saasContext?: string,
+  saasPrompt?: string[]
+): Promise<string> {
   return withRetry(async () => {
     // Check if it's "Cream Style" to provide a very specific high-end description
     const isCreamStyle = roomAnalysis.includes("奶油风") || roomAnalysis.includes("Creamy") || roomAnalysis.includes("Cream Style");
@@ -182,13 +188,17 @@ export async function generateResultPrompt(roomAnalysis: string, carpetAnalysis:
       `;
     }
 
+    const keywords = saasPrompt && saasPrompt.length > 0 ? `Supplemental Keywords: ${saasPrompt.join(", ")}` : "";
+
     const response = await callGeminiApi("models/gemini-3-flash-preview", {
       parts: [
         {
-          text: `基于以下房间和地毯的分析，请生成一段详细的英文提示词（Prompt），用于AI生图。
+          text: `基于以下分析和SaaS平台提供的内容，请生成一段详细的英文提示词（Prompt），用于AI生图。
       
 房间分析：${roomAnalysis}
 地毯分析：${carpetAnalysis}
+${saasContext ? `SaaS内容主体：${saasContext}` : ""}
+${keywords}
 ${specificStyleContext}
 
 生图核心要求（必须严格遵守）：

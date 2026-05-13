@@ -69,6 +69,12 @@ export interface SaaSImageUploadResponse {
   source?: string;
   savedToRecords?: boolean;
   recordId?: string;
+  image?: {
+    url: string;
+    fileName: string;
+    recordId: string;
+    savedToRecords: boolean;
+  };
   message?: string;
 }
 
@@ -122,10 +128,16 @@ export async function uploadResultImage(userId: string, toolId: string, imageDat
       }
 
       // 2. PUT to OSS (Use uploadUrl or proxyUploadUrl per spec)
-      const uploadUrl = tokenData.uploadUrl || tokenData.proxyUploadUrl;
+      // The default recommended is uploadUrl/proxyUploadUrl which uses the proxy
+      const uploadUrl = tokenData.uploadUrl || tokenData.proxyUploadUrl || tokenData.ossUploadUrl;
+      const headers = {
+        ...tokenData.headers,
+        "Content-Type": blob.type, // Ensure Content-Type is set
+      };
+
       const ossRes = await fetch(uploadUrl, {
         method: tokenData.method || "PUT",
-        headers: tokenData.headers || { "Content-Type": blob.type },
+        headers: headers,
         body: blob,
       });
 
@@ -149,7 +161,7 @@ export async function uploadResultImage(userId: string, toolId: string, imageDat
       
       // Documentation Stability Check: verify savedToRecords and recordId
       if (commitData.success && commitData.savedToRecords) {
-        console.log(`Image ${index} successfully saved to gallery. RecordId: ${commitData.recordId}`);
+        console.log(`Image ${index} successfully saved to gallery. RecordId: ${commitData.recordId || commitData.image?.recordId}`);
       } else {
         console.warn(`Image ${index} uploaded but not saved to gallery:`, commitData.message);
       }
