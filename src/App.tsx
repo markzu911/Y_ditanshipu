@@ -293,7 +293,8 @@ export default function App() {
       // Consume integral after successful generation
       if (userId && toolId) {
         try {
-          const res = await consumeIntegral(userId, toolId);
+          const requestId = crypto.randomUUID();
+          const res = await consumeIntegral(userId, toolId, requestId);
           if (res.success && res.data) {
             setIntegral(res.data.currentIntegral);
             

@@ -97,6 +97,21 @@ function base64ToBlob(base64: string): Blob {
   return new Blob([array], { type: mime });
 }
 
+export async function saveResultUrls(userId: string, toolId: string, imageUrls: string[], idempotencyKey?: string): Promise<SaaSImageUploadResponse> {
+  const response = await fetch("/api/upload/save-result", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId,
+      toolId,
+      source: "result",
+      imageUrls,
+      idempotencyKey: idempotencyKey || crypto.randomUUID(),
+    }),
+  });
+  return response.json();
+}
+
 /**
  * Upload result images to SaaS OSS following the Triple-Step Flow:
  * 1. Get direct-token
@@ -132,11 +147,10 @@ export async function uploadResultImage(userId: string, toolId: string, imageDat
       }
 
       // 2. PUT to OSS (Use uploadUrl or proxyUploadUrl per spec)
-      // The default recommended is uploadUrl/proxyUploadUrl which uses the proxy
       const uploadUrl = tokenData.uploadUrl || tokenData.proxyUploadUrl || tokenData.ossUploadUrl;
       const headers = {
         ...tokenData.headers,
-        "Content-Type": blob.type, // Ensure Content-Type is set
+        "Content-Type": blob.type,
       };
 
       const ossRes = await fetch(uploadUrl, {
@@ -149,28 +163,41 @@ export async function uploadResultImage(userId: string, toolId: string, imageDat
         throw new Error("Failed to upload image to OSS");
       }
 
-      // 3. Commit to database
-      const commitRes = await fetch("/api/upload/commit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          toolId,
-          source: "result",
-          objectKey: tokenData.objectKey,
-          fileSize: blob.size,
-        }),
-      });
-      const commitData = await commitRes.json();
-      
-      // Documentation Stability Check: verify savedToRecords and recordId
-      if (commitData.success && commitData.savedToRecords) {
-        console.log(`Image ${index} successfully saved to gallery. RecordId: ${commitData.recordId || commitData.image?.recordId}`);
+      let finalResult: SaaSImageUploadResponse;
+
+      // 3. Handle Commit based on strategy
+      if (tokenData.uploadStrategy === "proxy-put" || tokenData.savedToRecordsOnPut) {
+        // If it's a proxy upload, the response from PUT already contains the commit result
+        try {
+          finalResult = await ossRes.json();
+        } catch (e) {
+          // Fallback if proxy didn't return JSON but was successful
+          finalResult = { success: true, savedToRecords: true, url: tokenData.url };
+        }
       } else {
-        console.warn(`Image ${index} uploaded but not saved to gallery:`, commitData.message);
+        // Step 3: Explicit commit for raw OSS direct uploads
+        const commitRes = await fetch("/api/upload/commit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            toolId,
+            source: "result",
+            objectKey: tokenData.objectKey,
+            fileSize: blob.size,
+          }),
+        });
+        finalResult = await commitRes.json();
       }
       
-      results.push(commitData);
+      // Documentation Stability Check: verify savedToRecords and recordId
+      if (finalResult.success && finalResult.savedToRecords) {
+        console.log(`Image ${index} successfully saved to gallery. RecordId: ${finalResult.recordId || finalResult.image?.recordId}`);
+      } else {
+        console.warn(`Image ${index} uploaded but not saved to gallery:`, finalResult.message);
+      }
+      
+      results.push(finalResult);
     } catch (error: any) {
       console.error(`Failed to upload image ${index}:`, error);
       results.push({ success: false, message: error.message });
