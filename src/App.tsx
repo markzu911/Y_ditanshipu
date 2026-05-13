@@ -119,7 +119,12 @@ export default function App() {
   React.useEffect(() => {
     const handleSaaSInit = async (event: MessageEvent) => {
       if (event.data && event.data.type === 'SAAS_INIT') {
-        const { userId: uid, toolId: tid } = event.data;
+        let { userId: uid, toolId: tid } = event.data;
+        
+        // Filter out "null" or "undefined" strings as per spec
+        uid = (uid === "null" || uid === "undefined") ? "" : (uid || "");
+        tid = (tid === "null" || tid === "undefined") ? "" : (tid || "");
+
         if (uid && tid) {
           setUserId(uid);
           setToolId(tid);
@@ -140,8 +145,13 @@ export default function App() {
     
     // Also check URL params as fallback
     const urlParams = new URLSearchParams(window.location.search);
-    const uid = urlParams.get('userId');
-    const tid = urlParams.get('toolId');
+    let uid = urlParams.get('userId');
+    let tid = urlParams.get('toolId');
+
+    // Apply filtering to URL params too
+    uid = (uid === "null" || uid === "undefined") ? "" : (uid || "");
+    tid = (tid === "null" || tid === "undefined") ? "" : (tid || "");
+
     if (uid && tid) {
       window.postMessage({ type: 'SAAS_INIT', userId: uid, toolId: tid }, '*');
     }
@@ -228,6 +238,16 @@ export default function App() {
     setModelFrontImage(null);
 
     try {
+      // Step 1: Verify integral before any AI work (V4-3Step Requirement)
+      if (userId && toolId) {
+        const verify = await verifyIntegral(userId, toolId);
+        if (!verify.success) {
+          setGenError(verify.message || "积分不足，无法开启 AI 极速渲染。");
+          setIsGenerating(false);
+          return;
+        }
+      }
+
       const prompt = await generateResultPrompt(roomAnalysis, carpetAnalysis, !usePredefinedStyle);
       const roomBase64 = roomImage ? roomImage.split(",")[1] : null;
       const carpetBase64 = carpetImage.split(",")[1];

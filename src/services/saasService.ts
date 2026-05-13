@@ -121,8 +121,9 @@ export async function uploadResultImage(userId: string, toolId: string, imageDat
         throw new Error(tokenData.message || "Failed to get upload token");
       }
 
-      // 2. PUT to OSS
-      const ossRes = await fetch(tokenData.uploadUrl, {
+      // 2. PUT to OSS (Use uploadUrl or proxyUploadUrl per spec)
+      const uploadUrl = tokenData.uploadUrl || tokenData.proxyUploadUrl;
+      const ossRes = await fetch(uploadUrl, {
         method: tokenData.method || "PUT",
         headers: tokenData.headers || { "Content-Type": blob.type },
         body: blob,
@@ -145,6 +146,14 @@ export async function uploadResultImage(userId: string, toolId: string, imageDat
         }),
       });
       const commitData = await commitRes.json();
+      
+      // Documentation Stability Check: verify savedToRecords and recordId
+      if (commitData.success && commitData.savedToRecords) {
+        console.log(`Image ${index} successfully saved to gallery. RecordId: ${commitData.recordId}`);
+      } else {
+        console.warn(`Image ${index} uploaded but not saved to gallery:`, commitData.message);
+      }
+      
       results.push(commitData);
     } catch (error: any) {
       console.error(`Failed to upload image ${index}:`, error);
