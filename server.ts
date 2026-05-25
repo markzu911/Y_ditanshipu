@@ -62,7 +62,7 @@ async function startServer() {
             }
           },
           {
-            text: "请对这张已经铺好地毯的房间场景图进行深度视觉分析。识别房间空间结构、地毯位置、材质纹理、光影方向、透视关系与整体装修风格，然后基于该图片自动生成一个约 10 秒的高质量动态展示视频所需的Veo Prompt。\n\n请保证英文提示词富有商业广告感，能描述多于一个单纯静止视角的运动画面：例如前段镜头拍摄一个优雅的亚洲女模特，穿着高质感的象牙白色家居服赤脚在地毯上轻缓漫步；中段平滑过渡到她慵懒舒适地坐在地毯上、靠在沙发边缘翻看设计图书；后段展现极高阶的摄影机环绕、缓慢推焦展示地毯与家具交界处的细腻反光纹理。同时确保其描述能让Veo模型绝对忠实保持原图中地毯的位置、形状、编织比例与整体奶油或雅致风格色彩。\n\n请严格按指定JSON schema输出您的分析与最终的Veo英文视频提示词。"
+            text: "请对这张已经铺好地毯的房间场景图进行深度视觉分析。识别房间空间结构、地毯位置、材质纹理、光影方向、透视关系与整体装修风格，并基于该图片生成一段约 10 秒的高端家居广告级 Veo Prompts。生成的视频必须参考演示视频的分镜，包含多个高级镜头分镜切镜（避免单一长镜头），请给出包含多段分镜无缝衔接的完整英文描写：\n\n- 分镜 1 (0-2s)：开卷平铺，摄像机低角度平滑推进（Dolly In），展示地毯完全平铺展开的全景和完美的客厅硬木地板空间透视；\n- 分镜 2 (2-5s)：触感踩踏与细腻微距（Macro touch feel），特写镜头摇向地毯饱满柔软的毛绒纤维表面，伴随手部抚摸或足部轻盈踩踏，凸显短绒的高弹性、无死角细腻质地与松软舒适；\n- 分镜 3 (5-8s)：人居温馨场景整体广角（Lifestyle integration），机位横向平移，拍摄地毯与松软布艺沙发、实木茶几，以及坐在沙发上惬意阅读、饮茶的人物组合，表现极简、中和的家居优雅调性；\n- 分镜 4 (8-10s)：工艺揭秘，切镜到地毯一角微微抬起，局部展示致密的无底胶编织边角和防潮耐热背衬工艺，结合温暖流动的柔和自然扫光，凸显高定奢侈品级环保安全品质。\n\n请严格按指定JSON schema输出您的分析与最终的Veo英文视频提示词（veoPrompt 应该包含这些分镜的合并连续描述，指定多镜头‘multi-shot cut’，‘cinematic editing’，‘high-end rug texture close-up’）。"
           }
         ],
         config: {
@@ -73,7 +73,7 @@ async function startServer() {
               spatialStructure: { type: "STRING", description: "空间结构与透视关系分析" },
               carpetDetails: { type: "STRING", description: "地毯位置、花色设计与材质纹理分析" },
               themeStyle: { type: "STRING", description: "整体装修风格、家具搭配与光影方向分析" },
-              veoPrompt: { type: "STRING", description: "Veo 视频生成英文提示词。必须是一段约 10 秒的商业高端家居广告提示词。要求包含优雅亚洲女模特（穿着象牙白或米色家居服）的光脚漫步与坐在地毯上看书/靠沙发休息等流畅连续动作；镜头需有深度的平移运镜（dolly-in / pan）、轻微轨道环绕（orbit）、景深渐显（depth of field shift）及微距绒毛工艺质感近景；强调绝对忠实保留原图中地毯的尺寸、纹理及透视位置关系。" }
+              veoPrompt: { type: "STRING", description: "Veo 视频生成英文提示词。必须是一段连贯的、包含多镜头切镜（Dolly zoom, direct cut to close up macros, horizontal rail tracking, premium luxury ambient lighting sweep）的商业家居大片风格文案。" }
             },
             required: ["spatialStructure", "carpetDetails", "themeStyle", "veoPrompt"]
           }
@@ -90,7 +90,7 @@ async function startServer() {
           spatialStructure: "3D透视角度，地毯平铺于地面并延伸至沙发下方，视平线高度适中，具备良好的空间深度感。",
           carpetDetails: "地毯比例和大小合理，形状平整且四边与家具完美贴合。纤维编织紧密，纹理清洗，高度保持原作细节。",
           themeStyle: "现代雅致室内陈设，中性色彩格调为主，光线自左侧窗外照入，呈现柔和明暗和真实的自然投影效果。",
-          veoPrompt: "A high-end cinematic commercial showcasing a premium carpet in a modern living room. An elegant Asian female model in beige loungewear walks barefoot on the soft fibers, then relaxes while reading a design book on the rug. Slow dolly in, smooth camera orbit, warm volumetric lighting, photorealistic home atmosphere, ultra-high resolution."
+          veoPrompt: "A high-end cinematic commercial showcasing a premium carpet in a modern living room, slow dolly in, steady planning, soft warm lighting, photorealistic interior architectural photography, detailed fabric texture, UHD 4k"
         };
       }
 
