@@ -1480,57 +1480,6 @@ export default function App() {
                               );
                             })}
 
-                            {/* Watermark brand text at the beginning of loop */}
-                            {playbackTime < 2.0 && (
-                              <motion.div 
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 0.85, scale: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="absolute z-20 inset-0 flex flex-col items-center justify-center pointer-events-none"
-                              >
-                                <h1 className="text-3xl sm:text-5xl font-sans tracking-[0.25em] text-white font-light select-none drop-shadow-md">
-                                  SAIBOSI
-                                </h1>
-                              </motion.div>
-                            )}
-
-                            {/* Subtitle milestones overlay text */}
-                            {playbackTime >= 2.0 && playbackTime < 4.5 && (
-                              <motion.div 
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 0.9 }}
-                                className="absolute bottom-16 sm:bottom-20 z-20 inset-x-0 text-center pointer-events-none"
-                              >
-                                <div className="bg-black/50 backdrop-blur px-4 py-1.5 rounded-full inline-block text-white text-[10px] sm:text-xs font-medium tracking-wider drop-shadow-sm">
-                                  「 橡木低语 」 原木无胶防水防潮地毯
-                                </div>
-                              </motion.div>
-                            )}
-
-                            {playbackTime >= 4.5 && playbackTime < 7.5 && (
-                              <motion.div 
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 0.9 }}
-                                className="absolute bottom-16 sm:bottom-20 z-20 inset-x-0 text-center pointer-events-none"
-                              >
-                                <div className="bg-black/50 backdrop-blur px-4 py-1.5 rounded-full inline-block text-white text-[10px] sm:text-xs font-medium tracking-wider drop-shadow-sm">
-                                  松软包裹的踩沙脚感 · 暖意入怀
-                                </div>
-                              </motion.div>
-                            )}
-
-                            {playbackTime >= 7.5 && (
-                              <motion.div 
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 0.9 }}
-                                className="absolute bottom-16 sm:bottom-20 z-20 inset-x-0 text-center pointer-events-none"
-                              >
-                                <div className="bg-black/50 backdrop-blur px-4 py-1.5 rounded-full inline-block text-white text-[10px] sm:text-xs font-medium tracking-wider drop-shadow-sm">
-                                  无惧地暖 · 无胶无甲醛高安全品质
-                                </div>
-                              </motion.div>
-                            )}
-
                             {/* Warm lighting sweep transition at the final pullback */}
                             <motion.div 
                               className="absolute inset-0 bg-amber-500/5 pointer-events-none mix-blend-screen z-10"
@@ -1579,9 +1528,9 @@ export default function App() {
                                   </span>
                                 </div>
 
-                                <div className="text-[10px] sm:text-xs font-semibold tracking-wider text-white/70 flex items-center gap-1.5 font-sans">
+                                <div className="text-[10px] sm:text-xs font-semibold tracking-wider text-white/50 flex items-center gap-1.5 font-sans">
                                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                                  SAIBOSI 橡木低语 · 电影级高端展示视频
+                                  电影大片级全景渲染仿真 (Cinematic Continuous Simulation)
                                 </div>
                               </div>
                             </div>

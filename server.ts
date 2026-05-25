@@ -62,7 +62,7 @@ async function startServer() {
             }
           },
           {
-            text: "请对这张已经铺好地毯的房间场景图进行深度视觉分析。识别房间空间结构、地毯位置、材质纹理、光影方向、透视关系与整体装修风格，并基于该图片生成一段约 10 秒的高端家居广告级 Veo Prompts。生成的视频必须参考演示视频的分镜，包含多个高级镜头分镜切镜（避免单一长镜头），请给出包含多段分镜无缝衔接的完整英文描写：\n\n- 分镜 1 (0-2s)：开卷平铺，摄像机低角度平滑推进（Dolly In），展示地毯完全平铺展开的全景和完美的客厅硬木地板空间透视；\n- 分镜 2 (2-5s)：触感踩踏与细腻微距（Macro touch feel），特写镜头摇向地毯饱满柔软的毛绒纤维表面，伴随手部抚摸或足部轻盈踩踏，凸显短绒的高弹性、无死角细腻质地与松软舒适；\n- 分镜 3 (5-8s)：人居温馨场景整体广角（Lifestyle integration），机位横向平移，拍摄地毯与松软布艺沙发、实木茶几，以及坐在沙发上惬意阅读、饮茶的人物组合，表现极简、中和的家居优雅调性；\n- 分镜 4 (8-10s)：工艺揭秘，切镜到地毯一角微微抬起，局部展示致密的无底胶编织边角和防潮耐热背衬工艺，结合温暖流动的柔和自然扫光，凸显高定奢侈品级环保安全品质。\n\n请严格按指定JSON schema输出您的分析与最终的Veo英文视频提示词（veoPrompt 应该包含这些分镜的合并连续描述，指定多镜头‘multi-shot cut’，‘cinematic editing’，‘high-end rug texture close-up’）。"
+            text: "请对这张已经铺好地毯的房间场景图进行深度视觉分析。识别房间空间结构、地毯位置、材质纹理、光影方向、透视关系与整体装修风格，并基于该图片生成一段约 10 秒的高端家居广告级 Veo 视频提示词（Veo Prompts）。生成的视频必须完全参考示例短片，提供流畅贯通、高保真无缝且连贯的整体动作，不包含任何突兀的镜头硬切分镜（避免分成 Shot 1 / Shot 2 等），也禁止在视频中渲染任何叠加文本、Logo或水印。请直接生成一段完整的连贯大片英文描述：\n\n- 让一个穿着白色优雅衬衫、牛仔裤的年轻亚洲女性模特（若有模特），动作极其自然优雅地参与互动，如温柔用手指抚摸短绒材质、脚部接触踩踏或在温馨沙发椅上惬意喝茶休闲；\n- 摄像机运动应极其平滑、流畅。采用单镜一镜到底（One continuous long take）或超平滑渐进推拉平移（Ultra-smooth continuous cinematic sweeping camera progression, subtle slow panning and steady dolly zoom）；\n- 突出高定奢侈品级地毯在温暖阳光变幻下的极致细腻短绒触感、编织工艺边角、无胶高安全品质与雅致家居氛围之美。\n\n请严格按指定JSON schema输出您的分析与最终的Veo英文视频提示词（veoPrompt 必须是一段单独、无硬剪辑拆分、连贯优雅并且完全没有字幕/图形等杂质的英文提示词）。"
           }
         ],
         config: {
@@ -73,7 +73,7 @@ async function startServer() {
               spatialStructure: { type: "STRING", description: "空间结构与透视关系分析" },
               carpetDetails: { type: "STRING", description: "地毯位置、花色设计与材质纹理分析" },
               themeStyle: { type: "STRING", description: "整体装修风格、家具搭配与光影方向分析" },
-              veoPrompt: { type: "STRING", description: "Veo 视频生成英文提示词。必须是一段连贯的、包含多镜头切镜（Dolly zoom, direct cut to close up macros, horizontal rail tracking, premium luxury ambient lighting sweep）的商业家居大片风格文案。" }
+              veoPrompt: { type: "STRING", description: "Veo 视频生成英文提示词。必须是一段连贯、完全没有硬剪辑切分的一镜到底商业家居大片风格连续动作描写，注重自然模特互动与高保真平推镜头，全片保持画面极致连贯，绝无硬拼剪，且无任何字幕和Logo文字。" }
             },
             required: ["spatialStructure", "carpetDetails", "themeStyle", "veoPrompt"]
           }
