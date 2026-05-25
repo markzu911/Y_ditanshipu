@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Upload, 
@@ -137,20 +137,6 @@ export default function App() {
   const [isSimulation, setIsSimulation] = useState(false);
   const [simulationPlaying, setSimulationPlaying] = useState(false);
   const [selectedMovement, setSelectedMovement] = useState<"dolly" | "orbit" | "macro">("dolly");
-  const [activeShot, setActiveShot] = useState<1 | 2 | 3 | 4>(1);
-
-  // Automatic multi-shot storyboard timer for simulation
-  useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-    if (isSimulation && simulationPlaying) {
-      timer = setInterval(() => {
-        setActiveShot((prev) => (prev === 4 ? 1 : (prev + 1) as 1 | 2 | 3 | 4));
-      }, 3200); // Shift shots every 3.2 seconds gracefully
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [isSimulation, simulationPlaying]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1407,132 +1393,58 @@ export default function App() {
                         </div>
                       ) : isSimulation ? (
                         <div className="space-y-4">
-                          {/* Main Simulated Viewport with Active Cut transition */}
                           <div className="relative bg-slate-950 rounded-2xl aspect-[16/9] overflow-hidden border border-slate-200 shadow-2xl flex items-center justify-center">
-                            
-                            {/* Cinematic Animated Ken-Burns Frame customized by activeShot */}
+                            {/* Cinematic Animated Ken-Burns Frame */}
                             <motion.div 
-                              key={activeShot} // key forces re-mount of animation on camera cuts representing natural seamless visual edits
                               className="w-full h-full"
-                              initial={{ opacity: 0.85, filter: "brightness(0.9) blur(1px)" }}
-                              animate={{ 
-                                opacity: 1, 
-                                filter: "brightness(1) blur(0px)",
-                                ...((simulationPlaying) ? (
-                                  activeShot === 1 
-                                    ? { scale: [1.02, 1.08], x: [-15, 10], y: [0, 5], originX: 0.5, originY: 0.5 }
-                                    : activeShot === 2 
-                                      ? { scale: [2.1, 2.3], x: [10, -10], y: [-65, -55], originX: 0.5, originY: 0.9 } // Macro focusing on floor carpet
-                                      : activeShot === 3
-                                        ? { scale: [1.3, 1.45], x: [-20, 20], y: [-20, -15], originX: 0.5, originY: 0.8 } // Low tracking angles
-                                        : { scale: [1.2, 1.02], x: [0, 0], y: [5, 0], originX: 0.5, originY: 0.5 } // Wide pullback
-                                ) : {})
-                              }}
+                              animate={simulationPlaying ? {
+                                scale: [1, 1.09, 1.03, 1.09, 1.01],
+                                x: [0, -15, 12, -8, 0],
+                                y: [0, 8, -6, 4, 0],
+                              } : {}}
                               transition={{
-                                duration: activeShot === 1 ? 3.5 : activeShot === 2 ? 3 : activeShot === 3 ? 2.5 : 2.5,
+                                duration: 10,
+                                repeat: Infinity,
                                 ease: "easeInOut"
                               }}
                             >
                               <img src={resultImage || undefined} className="w-full h-full object-cover select-none pointer-events-none" />
                             </motion.div>
 
-                            {/* Lighting Gradient sheen pass swept across the surface by custom activeShot configs */}
+                            {/* Lighting Gradient sheen pass */}
                             <motion.div 
-                              key={`sheen-${activeShot}`}
-                              className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/20 pointer-events-none"
-                              animate={{
-                                opacity: activeShot === 2 ? [0.2, 0.55, 0.2] : activeShot === 4 ? [0.1, 0.7, 0.2] : [0.3, 0.4, 0.3],
-                              }}
-                              transition={{ duration: 3, repeat: Infinity }}
+                              className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/15 pointer-events-none"
+                              animate={simulationPlaying ? {
+                                opacity: [0.3, 0.6, 0.3],
+                              } : {}}
+                              transition={{ duration: 5, repeat: Infinity }}
                             />
 
-                            {/* Sun flash sweeps across the image in Cut 4 */}
-                            {activeShot === 4 && (
-                              <motion.div 
-                                className="absolute inset-0 bg-amber-500/10 pointer-events-none mix-blend-screen"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: [0, 0.3, 0] }}
-                                transition={{ duration: 2.8, ease: "easeOut" }}
-                              />
-                            )}
+                            <motion.div
+                              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none -skew-x-12"
+                              animate={simulationPlaying ? {
+                                left: ["-100%", "200%"]
+                              } : { left: "-100%" }}
+                              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                            />
 
-                            {/* Cross-hair overlay representing high-end movie camera screen */}
-                            <div className="absolute inset-4 border border-white/5 pointer-events-none flex items-center justify-center">
-                              <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-white/20" />
-                              <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-white/20" />
-                              <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-white/20" />
-                              <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-white/20" />
-                              <div className="w-2.5 h-2.5 border border-white/25 rounded-full" />
-                            </div>
-
-                            {/* Center grid lines */}
-                            <div className="absolute inset-x-0 top-1/2 h-[1px] bg-white/5 pointer-events-none" />
-                            <div className="absolute inset-y-0 left-1/2 w-[1px] bg-white/5 pointer-events-none" />
-
-                            {/* Bottom Ambient HUD displaying camera details */}
-                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent p-4 pt-10 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between text-white">
-                              <div className="flex items-center gap-3">
-                                <button 
-                                  onClick={() => setSimulationPlaying(!simulationPlaying)}
-                                  className="bg-amber-500 hover:bg-amber-600 p-2.5 rounded-xl transition-all shadow-md active:scale-90 shrink-0"
-                                >
-                                  {simulationPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white" />}
-                                </button>
-                                <div className="space-y-0.5 text-left">
-                                  <div className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-ping shrink-0" />
-                                    REC SHOT 0{activeShot}/04
-                                  </div>
-                                  <div className="text-xs font-bold text-white tracking-wide">
-                                    {activeShot === 1 && "分镜 1: 3D全景平滑平移推轨 (0-3s)"}
-                                    {activeShot === 2 && "分镜 2: 地毯微距针脚织物特写 (3-6s)"}
-                                    {activeShot === 3 && "分镜 3: 低角度滑轨横向跟踪 (6-8s)"}
-                                    {activeShot === 4 && "分镜 4: 阳光扫过拉角优雅广角 (8-10s)"}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-right space-y-0.5 text-[9px] font-mono text-slate-400">
-                                <div className="text-amber-500/80 font-bold">10s DYNAMIC COMMERCIAL</div>
-                                <div>RESOLUTION: 1080P PRORES</div>
+                            {/* Bottom Ambient HUD */}
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 flex items-center justify-between text-white">
+                              <button 
+                                onClick={() => setSimulationPlaying(!simulationPlaying)}
+                                className="bg-white/15 hover:bg-white/20 p-2 rounded-lg backdrop-blur transition-all"
+                              >
+                                {simulationPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                              </button>
+                              <div className="text-right space-y-0.5">
+                                <div className="text-[9px] font-bold tracking-[0.15em] text-white/50 uppercase">Rendering mode</div>
+                                <div className="text-xs font-bold text-amber-500">3D 沉浸式交互仿真仪 (10s)</div>
                               </div>
                             </div>
 
                             {/* Simulation tag */}
                             <div className="absolute top-4 left-4 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-md border border-amber-600 flex items-center gap-1.5 shadow-md">
-                              <Sparkles className="w-3.5 h-3.5" /> 仿真互动分镜
-                            </div>
-                          </div>
-
-                          {/* Storyboards Selection Grid ("不能一直只有一个画面" - Interactive storyboard selector) */}
-                          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-2.5">
-                            <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">
-                              🎬 电视广告分镜剪辑板 (Click storyboards to manually cut cameras)
-                            </span>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                              {[
-                                { id: 1, name: "Wide Establishing", desc: "0-3s 全景建立镜头" },
-                                { id: 2, name: "Micro Macro Weave", desc: "3-6s 毯面微距致密面料" },
-                                { id: 3, name: "Low-Angle Tracking", desc: "6-8s 低机位透视贴合" },
-                                { id: 4, name: "Sunset Cinematic", desc: "8-10s 朝阳流光拉焦" }
-                              ].map((shot) => (
-                                <button
-                                  key={shot.id}
-                                  onClick={() => {
-                                    setActiveShot(shot.id as 1 | 2 | 3 | 4);
-                                    setSimulationPlaying(false); // pause auto rotation so user can view static shot
-                                  }}
-                                  className={`p-2 rounded-xl text-left border transition-all ${
-                                    activeShot === shot.id 
-                                      ? "bg-amber-500 text-white border-amber-600 shadow-md transform -translate-y-0.5" 
-                                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                                  }`}
-                                >
-                                  <div className="text-[10px] font-bold block truncate">Shot 0{shot.id}</div>
-                                  <div className={`text-[9px] truncate ${activeShot === shot.id ? "text-white/80" : "text-slate-400"}`}>
-                                    {shot.name}
-                                  </div>
-                                </button>
-                              ))}
+                              <Sparkles className="w-3.5 h-3.5" /> 仿真体验版
                             </div>
                           </div>
 

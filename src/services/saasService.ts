@@ -140,7 +140,7 @@ export async function uploadResultImage(
   imageData: string | string[], 
   idempotencyKey?: string
 ): Promise<SaaSImageUploadResponse> {
-  const images = Array.isArray(imageData) ? imageData : [imageData];
+  const images = (Array.isArray(imageData) ? imageData : [imageData]).filter((img): img is string => typeof img === "string" && !!img);
   const results: SaaSImageUploadResponse[] = [];
 
   for (const [index, base64] of images.entries()) {
