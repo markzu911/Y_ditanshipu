@@ -1258,44 +1258,7 @@ export default function App() {
                         </motion.div>
                       ) : (
                         <div className="text-center p-4">
-                            <p className="text-[10px] text-slate-400">渲染失败</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Model Front View */}
-                {params.hasModel && (
-                  <div className="space-y-2">
-                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] text-center">坐姿正面视角 (Frontal)</h3>
-                    <div 
-                      onClick={() => modelFrontImage && !isGenerating && setPreviewImage(modelFrontImage)}
-                      className={`relative bg-white rounded-xl overflow-hidden shadow-lg border border-slate-200 aspect-square flex items-center justify-center ${modelFrontImage && !isGenerating ? 'cursor-zoom-in' : ''}`}
-                    >
-                      {!modelFrontImage && isGenerating ? (
-                        <div className="text-center space-y-4">
-                          <div className="w-12 h-12 border-4 border-slate-50 border-t-indigo-600 rounded-full animate-spin mx-auto" />
-                          <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest animate-pulse">Modeling...</span>
-                        </div>
-                      ) : modelFrontImage ? (
-                        <motion.div 
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="w-full h-full"
-                        >
-                          <img src={modelFrontImage} alt="Model Front Interaction Result" className="w-full h-full object-cover" />
-                          <a 
-                            href={modelFrontImage} 
-                            download="carpet-fitting-lifestyle-front.png"
-                            className="absolute bottom-3 right-3 bg-white/90 backdrop-blur rounded-lg p-2 shadow-md hover:bg-white transition-all border border-slate-200"
-                          >
-                            <Download className="w-4 h-4 text-indigo-600" />
-                          </a>
-                        </motion.div>
-                      ) : (
-                        <div className="text-center p-4">
-                            <p className="text-[10px] text-slate-400">渲染失败</p>
+                            <p className="text-[10px] text-slate-400">生成失败</p>
                         </div>
                       )}
                     </div>
@@ -1308,20 +1271,20 @@ export default function App() {
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6 mt-8"
+                  className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6 mt-8 max-w-4xl mx-auto"
                 >
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200">
-                          PRO VIDEO
+                        <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200 font-mono">
+                          VEO PRO 10S
                         </span>
                         <h3 className="text-lg font-bold text-slate-800">
-                          🎬 AI 视频试铺效果展示 (10秒高清商业镜头)
+                          🎬 AI 视频试铺效果展示
                         </h3>
                       </div>
                       <p className="text-xs text-slate-400">
-                        基于真实的房间结构与地毯细节，通过 Veo 渲染十秒专业摄影机运镜短片
+                        基于真实的房间结构与地毯细节，通过高清 AI 渲染 10 秒多镜头电影级广告视频
                       </p>
                     </div>
 
@@ -1332,9 +1295,9 @@ export default function App() {
                     )}
                   </div>
 
-                  <div className="grid lg:grid-cols-12 gap-8 items-stretch pt-2">
-                    {/* Left Screen: Player / Scanner */}
-                    <div className="lg:col-span-7 flex flex-col justify-center">
+                  <div className="flex flex-col space-y-6">
+                    {/* Unified Video Showcase Viewport */}
+                    <div className="w-full">
                       {isVideoLoading ? (
                         <div className="relative bg-slate-950 rounded-2xl aspect-[16/9] overflow-hidden flex flex-col items-center justify-center p-6 border border-slate-800 shadow-inner">
                           {/* Ambient background shadow */}
@@ -1365,7 +1328,7 @@ export default function App() {
                             </div>
                           </div>
 
-                          <div className="space-y-2 text-center max-w-md z-15">
+                          <div className="space-y-2 text-center max-w-md z-10">
                             <p className="text-xs font-bold text-amber-500 flex items-center justify-center gap-1.5 animate-pulse">
                               <Loader2 className="w-3.5 h-3.5 animate-spin" /> {videoProgressText}
                             </p>
@@ -1474,7 +1437,7 @@ export default function App() {
                               <div className="flex items-center gap-3">
                                 <button 
                                   onClick={() => setSimulationPlaying(!simulationPlaying)}
-                                  className="bg-amber-500 hover:bg-amber-600 p-2.5 rounded-xl transition-all shadow-md active:scale-90 shrink-0"
+                                  className="bg-amber-50 hover:bg-amber-600 p-2.5 rounded-xl transition-all shadow-md active:scale-90 shrink-0"
                                 >
                                   {simulationPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white" />}
                                 </button>
@@ -1484,10 +1447,10 @@ export default function App() {
                                     REC SHOT 0{activeShot}/04
                                   </div>
                                   <div className="text-xs font-bold text-white tracking-wide">
-                                    {activeShot === 1 && "分镜 1: 3D全景平滑平移推轨 (0-3s)"}
-                                    {activeShot === 2 && "分镜 2: 地毯微距针脚织物特写 (3-6s)"}
-                                    {activeShot === 3 && "分镜 3: 低角度滑轨横向跟踪 (6-8s)"}
-                                    {activeShot === 4 && "分镜 4: 阳光扫过拉角优雅广角 (8-10s)"}
+                                    {activeShot === 1 && "分镜 1: 3D全景平滑平移推轨 (0-2s)"}
+                                    {activeShot === 2 && "分镜 2: 触感特写与铺设细节 (2-5s)"}
+                                    {activeShot === 3 && "分镜 3: 整体家居优雅调性呈现 (5-8s)"}
+                                    {activeShot === 4 && "分镜 4: 无底胶环保编织品质感 (8-10s)"}
                                   </div>
                                 </div>
                               </div>
@@ -1506,14 +1469,14 @@ export default function App() {
                           {/* Storyboards Selection Grid ("不能一直只有一个画面" - Interactive storyboard selector) */}
                           <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-2.5">
                             <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">
-                              🎬 电视广告分镜剪辑板 (Click storyboards to manually cut cameras)
+                              🎬 电视广告分镜控制台 (电视级分镜切镜切换)
                             </span>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                               {[
-                                { id: 1, name: "Wide Establishing", desc: "0-3s 全景建立镜头" },
-                                { id: 2, name: "Micro Macro Weave", desc: "3-6s 毯面微距致密面料" },
-                                { id: 3, name: "Low-Angle Tracking", desc: "6-8s 低机位透视贴合" },
-                                { id: 4, name: "Sunset Cinematic", desc: "8-10s 朝阳流光拉焦" }
+                                { id: 1, name: "Wide Establishing", desc: "0-2s 全景平铺展开拍摄" },
+                                { id: 2, name: "Micro Macro Weave", desc: "2-5s 地毯松软踩踏特写" },
+                                { id: 3, name: "Lifestyle Cozy Frame", desc: "5-8s 人物饮茶温暖融合" },
+                                { id: 4, name: "Eco Craft Corner", desc: "8-10s 无胶编织工艺揭秘" }
                               ].map((shot) => (
                                 <button
                                   key={shot.id}
@@ -1558,64 +1521,17 @@ export default function App() {
                       )}
                     </div>
 
-                    {/* Right Column: Intelligent Visual Analysis */}
-                    <div className="lg:col-span-5 flex flex-col justify-between space-y-6">
-                      <div className="space-y-4">
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-100 pb-2">
-                          👁️ 智能视觉解析数据表 (Visual Analysis)
-                        </h4>
-
-                        <div className="space-y-3.5">
-                          {/* 1. Spatial Structure */}
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-slate-500 block">3D 房间空间结构与透视关系统筹</span>
-                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100/80 text-[11px] text-slate-600 leading-relaxed">
-                              {videoAnalysis ? videoAnalysis.spatialStructure : "等待传感器扫描提取数据..."}
-                            </div>
-                          </div>
-
-                          {/* 2. Carpet Details */}
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-slate-500 block">地毯固定边缘、材质花色与纤维配比</span>
-                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100/80 text-[11px] text-slate-600 leading-relaxed">
-                              {videoAnalysis ? videoAnalysis.carpetDetails : "等待传感器扫描提取数据..."}
-                            </div>
-                          </div>
-
-                          {/* 3. Theme & lighting */}
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-slate-500 block">全景光影流向与投射氛围对比</span>
-                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100/80 text-[11px] text-slate-600 leading-relaxed">
-                              {videoAnalysis ? videoAnalysis.themeStyle : "等待传感器扫描提取数据..."}
-                            </div>
-                          </div>
-                        </div>
+                    {/* Simple Bottom Action to trigger re-renders */}
+                    {!isVideoLoading && (videoUrl || isSimulation) && (
+                      <div className="flex gap-4 justify-center">
+                        <button
+                          onClick={handleGenerateVideo}
+                          className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-md active:scale-95"
+                        >
+                          <RefreshCcw className="w-3.5 h-3.5 text-white" /> 重新渲染试铺展示视频
+                        </button>
                       </div>
-
-                      {/* Bottom action controls */}
-                      <div className="space-y-3 pt-4 border-t border-slate-100">
-                        {!isVideoLoading && (
-                          <button
-                            onClick={handleGenerateVideo}
-                            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-md active:scale-95"
-                          >
-                            <RefreshCcw className="w-3.5 h-3.5 text-white" /> 
-                            {videoUrl || isSimulation ? "重新解析并渲染展示动画" : "启动 AI 地毯试铺视觉分析与 Veo 视频生成"}
-                          </button>
-                        )}
-                        
-                        {videoPromptUsed && (
-                          <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100/70">
-                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
-                              Veo Core Generation Command (Prompt Used)
-                            </span>
-                            <p className="text-[10px] font-mono text-slate-500 leading-relaxed max-h-16 overflow-y-auto italic">
-                              "{videoPromptUsed}"
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </motion.div>
               )}
