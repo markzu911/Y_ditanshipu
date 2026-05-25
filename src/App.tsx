@@ -1437,7 +1437,7 @@ export default function App() {
                               <div className="flex items-center gap-3">
                                 <button 
                                   onClick={() => setSimulationPlaying(!simulationPlaying)}
-                                  className="bg-amber-50 hover:bg-amber-600 p-2.5 rounded-xl transition-all shadow-md active:scale-90 shrink-0"
+                                  className="bg-amber-500 hover:bg-amber-650 p-2.5 rounded-xl transition-all shadow-md active:scale-90 shrink-0"
                                 >
                                   {simulationPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white" />}
                                 </button>
@@ -1466,38 +1466,7 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* Storyboards Selection Grid ("不能一直只有一个画面" - Interactive storyboard selector) */}
-                          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-2.5">
-                            <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">
-                              🎬 电视广告分镜控制台 (电视级分镜切镜切换)
-                            </span>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                              {[
-                                { id: 1, name: "Wide Establishing", desc: "0-2s 全景平铺展开拍摄" },
-                                { id: 2, name: "Micro Macro Weave", desc: "2-5s 地毯松软踩踏特写" },
-                                { id: 3, name: "Lifestyle Cozy Frame", desc: "5-8s 人物饮茶温暖融合" },
-                                { id: 4, name: "Eco Craft Corner", desc: "8-10s 无胶编织工艺揭秘" }
-                              ].map((shot) => (
-                                <button
-                                  key={shot.id}
-                                  onClick={() => {
-                                    setActiveShot(shot.id as 1 | 2 | 3 | 4);
-                                    setSimulationPlaying(false); // pause auto rotation so user can view static shot
-                                  }}
-                                  className={`p-2 rounded-xl text-left border transition-all ${
-                                    activeShot === shot.id 
-                                      ? "bg-amber-500 text-white border-amber-600 shadow-md transform -translate-y-0.5" 
-                                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                                  }`}
-                                >
-                                  <div className="text-[10px] font-bold block truncate">Shot 0{shot.id}</div>
-                                  <div className={`text-[9px] truncate ${activeShot === shot.id ? "text-white/80" : "text-slate-400"}`}>
-                                    {shot.name}
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
+
 
                           {/* Sim explanation card */}
                           {videoError && (

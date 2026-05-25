@@ -230,58 +230,6 @@ async function startServer() {
     }
   });
 
-  // SaaS & Gemini Proxy Routes
-  app.all("/api/*", async (req, res) => {
-    const url = req.url;
-    
-    try {
-      if (url.includes("/api/gemini")) {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-          return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
-        }
-
-        const genAI = new GoogleGenAI({ apiKey });
-        const { model, contents, config } = req.body;
-        console.log(`Local Proxy: Calling Gemini model ${model}`);
-        
-        const response = await genAI.models.generateContent({
-          model,
-          contents: contents.contents || contents,
-          config: config
-        });
-
-        return res.json(response);
-      }
-
-      if (url.includes("/api/tool/") || url.includes("/api/upload/")) {
-        const targetUrl = `http://aibigtree.com${url}`;
-        console.log(`Local Proxy: Forwarding to SaaS ${targetUrl}`);
-        
-        const headers: any = {
-          "Content-Type": req.headers["content-type"] || "application/json",
-        };
-        if (req.headers["authorization"]) headers["Authorization"] = req.headers["authorization"];
-
-        const isJson = headers["Content-Type"]?.includes("application/json");
-
-        const saasResponse = await fetch(targetUrl, {
-          method: req.method,
-          headers: headers,
-          body: req.method !== "GET" ? (isJson ? JSON.stringify(req.body) : (req as any)) : undefined,
-        });
-
-        const data = await saasResponse.json();
-        return res.status(saasResponse.status).json(data);
-      }
-
-      res.status(404).json({ error: "API Route Not Found" });
-    } catch (error: any) {
-      console.error("Local Proxy Error:", error);
-      res.status(500).json({ error: error.message || "Internal Server Error" });
-    }
-  });
-
   // Keep existing image generation route if needed, or unify it.
   // Given the user request, they want everything under /api to be handled by the proxy logic.
   // I'll group them for clarity.
@@ -358,6 +306,58 @@ async function startServer() {
     } catch (error: any) {
       console.error("Backend Proxy Error:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // SaaS & Gemini Proxy Routes
+  app.all("/api/*", async (req, res) => {
+    const url = req.url;
+    
+    try {
+      if (url.includes("/api/gemini")) {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+          return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+        }
+
+        const genAI = new GoogleGenAI({ apiKey });
+        const { model, contents, config } = req.body;
+        console.log(`Local Proxy: Calling Gemini model ${model}`);
+        
+        const response = await genAI.models.generateContent({
+          model,
+          contents: contents.contents || contents,
+          config: config
+        });
+
+        return res.json(response);
+      }
+
+      if (url.includes("/api/tool/") || url.includes("/api/upload/")) {
+        const targetUrl = `http://aibigtree.com${url}`;
+        console.log(`Local Proxy: Forwarding to SaaS ${targetUrl}`);
+        
+        const headers: any = {
+          "Content-Type": req.headers["content-type"] || "application/json",
+        };
+        if (req.headers["authorization"]) headers["Authorization"] = req.headers["authorization"];
+
+        const isJson = headers["Content-Type"]?.includes("application/json");
+
+        const saasResponse = await fetch(targetUrl, {
+          method: req.method,
+          headers: headers,
+          body: req.method !== "GET" ? (isJson ? JSON.stringify(req.body) : (req as any)) : undefined,
+        });
+
+        const data = await saasResponse.json();
+        return res.status(saasResponse.status).json(data);
+      }
+
+      res.status(404).json({ error: "API Route Not Found" });
+    } catch (error: any) {
+      console.error("Local Proxy Error:", error);
+      res.status(500).json({ error: error.message || "Internal Server Error" });
     }
   });
 
