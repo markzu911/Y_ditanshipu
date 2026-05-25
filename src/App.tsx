@@ -1271,8 +1271,30 @@ export default function App() {
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-transparent mt-8 max-w-4xl mx-auto"
+                  className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6 mt-8 max-w-4xl mx-auto"
                 >
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200 font-mono">
+                          VEO PRO 10S
+                        </span>
+                        <h3 className="text-lg font-bold text-slate-800">
+                          🎬 AI 视频试铺效果展示
+                        </h3>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        基于真实的房间结构与地毯细节，通过高清 AI 渲染 10 秒多镜头电影级广告视频
+                      </p>
+                    </div>
+
+                    {isSimulation && (
+                      <span className="text-[10px] bg-sky-50 text-sky-700 font-bold px-3 py-1 rounded-full border border-sky-100 uppercase tracking-wider">
+                        ✨ 已自动激活三维沉浸仿真
+                      </span>
+                    )}
+                  </div>
+
                   <div className="flex flex-col space-y-6">
                     {/* Unified Video Showcase Viewport */}
                     <div className="w-full">
@@ -1280,36 +1302,48 @@ export default function App() {
                         <div className="relative bg-slate-950 rounded-2xl aspect-[16/9] overflow-hidden flex flex-col items-center justify-center p-6 border border-slate-800 shadow-inner">
                           {/* Ambient background shadow */}
                           {resultImage && (
-                            <img src={resultImage} className="absolute inset-0 w-full h-full object-cover opacity-15 blur-sm brightness-50" />
+                            <img src={resultImage} className="absolute inset-0 w-full h-full object-cover opacity-10 blur-sm brightness-50" />
                           )}
                           
                           {/* Delicate Scanner Ring */}
-                          <div className="relative w-24 h-24 flex items-center justify-center mb-6">
+                          <div className="relative w-28 h-28 flex items-center justify-center mb-6">
                             <svg className="w-full h-full transform -rotate-90">
-                              <circle cx="48" cy="48" r="40" fill="transparent" stroke="rgba(245,158,11,0.1)" strokeWidth="5" />
+                              <circle cx="56" cy="56" r="48" fill="transparent" stroke="rgba(245,158,11,0.1)" strokeWidth="6" />
                               <circle 
-                                cx="48" 
-                                cy="48" 
-                                r="40" 
+                                cx="56" 
+                                cy="56" 
+                                r="48" 
                                 fill="transparent" 
                                 stroke="#f59e0b" 
-                                strokeWidth="5" 
-                                strokeDasharray="251.2" 
-                                strokeDashoffset={251.2 - (251.2 * videoProgressPercent) / 100}
+                                strokeWidth="6" 
+                                strokeDasharray="301.6" 
+                                strokeDashoffset={301.6 - (301.6 * videoProgressPercent) / 100}
                                 strokeLinecap="round"
                                 className="transition-all duration-300"
                               />
                             </svg>
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                              <span className="text-lg font-black text-amber-500">{videoProgressPercent}%</span>
+                              <span className="text-xl font-black text-amber-500">{videoProgressPercent}%</span>
+                              <span className="text-[8px] text-slate-500 font-bold tracking-widest uppercase">Progress</span>
                             </div>
                           </div>
 
-                          <div className="space-y-1 text-center max-w-sm z-10">
+                          <div className="space-y-2 text-center max-w-md z-10">
                             <p className="text-xs font-bold text-amber-500 flex items-center justify-center gap-1.5 animate-pulse">
                               <Loader2 className="w-3.5 h-3.5 animate-spin" /> {videoProgressText}
                             </p>
+                            <p className="text-[10px] text-slate-500">
+                              高精度 3D 传感器重构中，首次生成约需 1 分钟左右，请不要刷新页面
+                            </p>
                           </div>
+
+                          {/* Top-down scanning ray */}
+                          <motion.div 
+                            initial={{ top: 0 }}
+                            animate={{ top: "100%" }}
+                            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                            className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent shadow-[0_0_15px_rgba(245,158,11,0.4)]"
+                          />
                         </div>
                       ) : videoUrl ? (
                         <div className="relative bg-slate-900 rounded-2xl aspect-[16/9] overflow-hidden group border border-slate-200 shadow-xl flex items-center justify-center">
@@ -1321,53 +1355,129 @@ export default function App() {
                             playsInline
                             className="w-full h-full object-cover"
                           />
+                          <div className="absolute top-4 left-4 bg-black/60 backdrop-blur text-[10px] font-bold text-white px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                            高清 Veo MP4 媒体流已挂载
+                          </div>
+                          
+                          <a 
+                            href={videoUrl} 
+                            download="carpet-fitting-showcase.mp4"
+                            className="absolute bottom-4 right-4 bg-amber-500 text-white rounded-xl p-2.5 shadow-lg hover:bg-amber-600 transition-all text-xs font-bold flex items-center gap-1.5 border border-amber-600 opacity-0 group-hover:opacity-100"
+                          >
+                            <Download className="w-4 h-4" /> 导出视频 (MP4)
+                          </a>
                         </div>
                       ) : isSimulation ? (
-                        <div className="relative bg-slate-950 rounded-2xl aspect-[16/9] overflow-hidden border border-slate-200 shadow-2xl flex items-center justify-center">
-                          {/* Cinematic Animated Ken-Burns Frame customized by activeShot */}
-                          <motion.div 
-                            key={activeShot} 
-                            className="w-full h-full"
-                            initial={{ opacity: 0.9 }}
-                            animate={{ 
-                              opacity: 1, 
-                              ...((simulationPlaying) ? (
-                                activeShot === 1 
-                                  ? { scale: [1.02, 1.08], x: [-15, 10], y: [0, 5], originX: 0.5, originY: 0.5 }
-                                  : activeShot === 2 
-                                    ? { scale: [2.1, 2.3], x: [10, -10], y: [-65, -55], originX: 0.5, originY: 0.9 } 
-                                    : activeShot === 3
-                                      ? { scale: [1.3, 1.45], x: [-20, 20], y: [-20, -15], originX: 0.5, originY: 0.8 } 
-                                      : { scale: [1.2, 1.02], x: [0, 0], y: [5, 0], originX: 0.5, originY: 0.5 } 
-                              ) : {})
-                            }}
-                            transition={{
-                              duration: activeShot === 1 ? 3.5 : activeShot === 2 ? 3 : activeShot === 3 ? 2.5 : 2.5,
-                              ease: "easeInOut"
-                            }}
-                          >
-                            <img src={resultImage || undefined} className="w-full h-full object-cover select-none pointer-events-none" />
-                          </motion.div>
-
-                          {/* Minimalist Play/Pause button floating in simulated view */}
-                          <div className="absolute bottom-6 left-6 z-20">
-                            <button 
-                              onClick={() => setSimulationPlaying(!simulationPlaying)}
-                              className="bg-black/70 hover:bg-black text-white hover:scale-105 backdrop-blur-md px-5 py-3 rounded-full transition-all shadow-lg active:scale-95 flex items-center gap-2 border border-white/20 font-medium text-xs leading-none"
+                        <div className="space-y-4">
+                          {/* Main Simulated Viewport with Active Cut transition */}
+                          <div className="relative bg-slate-950 rounded-2xl aspect-[16/9] overflow-hidden border border-slate-200 shadow-2xl flex items-center justify-center">
+                            
+                            {/* Cinematic Animated Ken-Burns Frame customized by activeShot */}
+                            <motion.div 
+                              key={activeShot} // key forces re-mount of animation on camera cuts representing natural seamless visual edits
+                              className="w-full h-full"
+                              initial={{ opacity: 0.85, filter: "brightness(0.9) blur(1px)" }}
+                              animate={{ 
+                                opacity: 1, 
+                                filter: "brightness(1) blur(0px)",
+                                ...((simulationPlaying) ? (
+                                  activeShot === 1 
+                                    ? { scale: [1.02, 1.08], x: [-15, 10], y: [0, 5], originX: 0.5, originY: 0.5 }
+                                    : activeShot === 2 
+                                      ? { scale: [2.1, 2.3], x: [10, -10], y: [-65, -55], originX: 0.5, originY: 0.9 } // Macro focusing on floor carpet
+                                      : activeShot === 3
+                                        ? { scale: [1.3, 1.45], x: [-20, 20], y: [-20, -15], originX: 0.5, originY: 0.8 } // Low tracking angles
+                                        : { scale: [1.2, 1.02], x: [0, 0], y: [5, 0], originX: 0.5, originY: 0.5 } // Wide pullback
+                                ) : {})
+                              }}
+                              transition={{
+                                duration: activeShot === 1 ? 3.5 : activeShot === 2 ? 3 : activeShot === 3 ? 2.5 : 2.5,
+                                ease: "easeInOut"
+                              }}
                             >
-                              {simulationPlaying ? (
-                                <>
-                                  <Pause className="w-4 h-4 text-white fill-current" />
-                                  <span>暂停</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="w-4 h-4 text-white fill-current" />
-                                  <span>播放</span>
-                                </>
-                              )}
-                            </button>
+                              <img src={resultImage || undefined} className="w-full h-full object-cover select-none pointer-events-none" />
+                            </motion.div>
+
+                            {/* Lighting Gradient sheen pass swept across the surface by custom activeShot configs */}
+                            <motion.div 
+                              key={`sheen-${activeShot}`}
+                              className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/20 pointer-events-none"
+                              animate={{
+                                opacity: activeShot === 2 ? [0.2, 0.55, 0.2] : activeShot === 4 ? [0.1, 0.7, 0.2] : [0.3, 0.4, 0.3],
+                              }}
+                              transition={{ duration: 3, repeat: Infinity }}
+                            />
+
+                            {/* Sun flash sweeps across the image in Cut 4 */}
+                            {activeShot === 4 && (
+                              <motion.div 
+                                className="absolute inset-0 bg-amber-500/10 pointer-events-none mix-blend-screen"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: [0, 0.3, 0] }}
+                                transition={{ duration: 2.8, ease: "easeOut" }}
+                              />
+                            )}
+
+                            {/* Cross-hair overlay representing high-end movie camera screen */}
+                            <div className="absolute inset-4 border border-white/5 pointer-events-none flex items-center justify-center">
+                              <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-white/20" />
+                              <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-white/20" />
+                              <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-white/20" />
+                              <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-white/20" />
+                              <div className="w-2.5 h-2.5 border border-white/25 rounded-full" />
+                            </div>
+
+                            {/* Center grid lines */}
+                            <div className="absolute inset-x-0 top-1/2 h-[1px] bg-white/5 pointer-events-none" />
+                            <div className="absolute inset-y-0 left-1/2 w-[1px] bg-white/5 pointer-events-none" />
+
+                            {/* Bottom Ambient HUD displaying camera details */}
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent p-4 pt-10 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between text-white">
+                              <div className="flex items-center gap-3">
+                                <button 
+                                  onClick={() => setSimulationPlaying(!simulationPlaying)}
+                                  className="bg-amber-500 hover:bg-amber-650 p-2.5 rounded-xl transition-all shadow-md active:scale-90 shrink-0"
+                                >
+                                  {simulationPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white" />}
+                                </button>
+                                <div className="space-y-0.5 text-left">
+                                  <div className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-ping shrink-0" />
+                                    REC SHOT 0{activeShot}/04
+                                  </div>
+                                  <div className="text-xs font-bold text-white tracking-wide">
+                                    {activeShot === 1 && "分镜 1: 3D全景平滑平移推轨 (0-2s)"}
+                                    {activeShot === 2 && "分镜 2: 触感特写与铺设细节 (2-5s)"}
+                                    {activeShot === 3 && "分镜 3: 整体家居优雅调性呈现 (5-8s)"}
+                                    {activeShot === 4 && "分镜 4: 无底胶环保编织品质感 (8-10s)"}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right space-y-0.5 text-[9px] font-mono text-slate-400">
+                                <div className="text-amber-500/80 font-bold">10s DYNAMIC COMMERCIAL</div>
+                                <div>RESOLUTION: 1080P PRORES</div>
+                              </div>
+                            </div>
+
+                            {/* Simulation tag */}
+                            <div className="absolute top-4 left-4 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-md border border-amber-600 flex items-center gap-1.5 shadow-md">
+                              <Sparkles className="w-3.5 h-3.5" /> 仿真互动分镜
+                            </div>
                           </div>
+
+
+
+                          {/* Sim explanation card */}
+                          {videoError && (
+                            <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl text-[10px] text-indigo-700 leading-relaxed font-medium flex items-start gap-2.5">
+                              <Info className="w-4 h-4 shrink-0 mt-0.5 text-indigo-500" />
+                              <div className="space-y-1">
+                                <span className="font-bold block">💡 为什么要提供交互仿真技术？</span>
+                                <span>Veo 视频大模型极度消耗算力且对 API 账户有高门槛配额限制。为了确保您获得流畅的产品体验，系统结合 Gemini Vision 的物理提取能力与原图，运用 3D Panning 智能视差镜头，模拟了 10 秒高透光线扫射和缓慢推轨，无损还原展示地毯本身的花纹、尺寸设计。</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl aspect-[16/9] flex flex-col items-center justify-center p-6 text-center">
