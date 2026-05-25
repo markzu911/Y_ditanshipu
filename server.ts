@@ -62,7 +62,7 @@ async function startServer() {
             }
           },
           {
-            text: "请对这张已经铺好地毯的房间场景图进行深度视觉分析。识别房间空间结构、地毯位置、材质纹理、光影方向、透视关系与整体装修风格，然后基于该图片自动生成一个约 10 秒的高质量动态展示视频所需的Veo Prompt。\n\n请严格按指定JSON schema输出您的分析与最终的Veo英文视频提示词。"
+            text: "请对这张已经铺好地毯的房间场景图进行深度视觉分析。识别房间空间结构、地毯位置、材质纹理、光影方向、透视关系与整体装修风格，并基于该图片生成一段约 10 秒的高端家居广告级 Veo Prompts。生成的视频必须包含多个高级镜头分镜切镜（避免单一长镜头），请给出包含多段分镜无缝衔接的完整英文描写：\n\n- 分镜 1 (0-3s)：全景推移建立镜头，摄像机平滑地以慢速移动或轨道推移，展示整个房间的设计和地毯铺设的完整空间感；\n- 分镜 2 (3-6s)：微距特写，切镜到地毯边缘及致密的毛绒材质、经纬编织纹理上，伴随柔和的侧向扫光，凸显顶级纤维厚实与高级质感；\n- 分镜 3 (6-8s)：低机位水平横向滑轨移动（Dolly Sweep），捕捉地毯与周围沙发、茶几等家具完美拼合的透视比例；\n- 分镜 4 (8-10s)：向后拉焦或抬升的优雅广角全景推拉，展示朝阳般和煦的自然光洒在地毯与全屋之上，氛围奢华高端。\n\n请严格按指定JSON schema输出您的分析与最终的Veo英文视频提示词（veoPrompt 应该包含这些分镜的合并连续描述，指定多镜头‘multi-shot cut’，‘cinematic editing’，‘high-end rug texture close-up’）。"
           }
         ],
         config: {
@@ -73,7 +73,7 @@ async function startServer() {
               spatialStructure: { type: "STRING", description: "空间结构与透视关系分析" },
               carpetDetails: { type: "STRING", description: "地毯位置、花色设计与材质纹理分析" },
               themeStyle: { type: "STRING", description: "整体装修风格、家具搭配与光影方向分析" },
-              veoPrompt: { type: "STRING", description: "Veo 视频生成英文提示词。要求描述缓慢运镜、微距细节、高端家居广告风格，保持地毯形态色彩完全原本一致不失真。" }
+              veoPrompt: { type: "STRING", description: "Veo 视频生成英文提示词。必须是一段连贯的、包含多镜头切镜（Dolly zoom, direct cut to close up macros, horizontal rail tracking, premium luxury ambient lighting sweep）的商业家居大片风格文案。" }
             },
             required: ["spatialStructure", "carpetDetails", "themeStyle", "veoPrompt"]
           }
