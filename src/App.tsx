@@ -1396,7 +1396,16 @@ export default function App() {
                                 ease: "easeInOut"
                               }}
                             >
-                              <img src={resultImage || undefined} className="w-full h-full object-cover select-none pointer-events-none" />
+                              <img 
+                                src={
+                                  activeShot === 2 
+                                    ? (modelImage || resultImage || undefined) 
+                                    : activeShot === 3 
+                                      ? (modelFrontImage || modelImage || resultImage || undefined) 
+                                      : (resultImage || undefined)
+                                } 
+                                className="w-full h-full object-cover select-none pointer-events-none" 
+                              />
                             </motion.div>
 
                             {/* Lighting Gradient sheen pass swept across the surface by custom activeShot configs */}
