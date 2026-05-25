@@ -138,14 +138,23 @@ export default function App() {
   const [simulationPlaying, setSimulationPlaying] = useState(false);
   const [selectedMovement, setSelectedMovement] = useState<"dolly" | "orbit" | "macro">("dolly");
   const [activeShot, setActiveShot] = useState<1 | 2 | 3 | 4>(1);
+  const [playbackTime, setPlaybackTime] = useState<number>(0);
 
-  // Automatic multi-shot storyboard timer for simulation
+  // Automatic high-frequency seamless timeline interval for buttery smooth simulation
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     if (isSimulation && simulationPlaying) {
+      const intervalMs = 40; // 25 FPS update speed for cinematic render simulation
       timer = setInterval(() => {
-        setActiveShot((prev) => (prev === 4 ? 1 : (prev + 1) as 1 | 2 | 3 | 4));
-      }, 3200); // Shift shots every 3.2 seconds gracefully
+        setPlaybackTime((prev) => {
+          const next = prev + intervalMs / 1000;
+          const capped = next >= 10.0 ? 0 : next;
+          // Sync active shot for label displays
+          const derivedShot = Math.min(4, Math.floor(capped / 2.5) + 1) as 1 | 2 | 3 | 4;
+          setActiveShot(derivedShot);
+          return capped;
+        });
+      }, intervalMs);
     }
     return () => {
       if (timer) clearInterval(timer);
@@ -1370,108 +1379,211 @@ export default function App() {
                         </div>
                       ) : isSimulation ? (
                         <div className="space-y-4">
-                          {/* Main Simulated Viewport with Active Cut transition */}
-                          <div className="relative bg-slate-950 rounded-2xl aspect-[16/9] overflow-hidden border border-slate-200 shadow-2xl flex items-center justify-center">
+                          {/* Main Simulated Viewport with Elegant Cinematic Cross-fades */}
+                          <div className="relative bg-slate-900 rounded-2xl aspect-[16/9] overflow-hidden border border-slate-200/80 shadow-2xl flex items-center justify-center group/player">
                             
-                            {/* Cinematic Animated Ken-Burns Frame customized by activeShot */}
-                            <motion.div 
-                              key={activeShot} // key forces re-mount of animation on camera cuts representing natural seamless visual edits
-                              className="w-full h-full"
-                              initial={{ opacity: 0.85, filter: "brightness(0.9) blur(1px)" }}
-                              animate={{ 
-                                opacity: 1, 
-                                filter: "brightness(1) blur(0px)",
-                                ...((simulationPlaying) ? (
-                                  activeShot === 1 
-                                    ? { scale: [1.02, 1.08], x: [-15, 10], y: [0, 5], originX: 0.5, originY: 0.5 }
-                                    : activeShot === 2 
-                                      ? { scale: [2.1, 2.3], x: [10, -10], y: [-65, -55], originX: 0.5, originY: 0.9 } // Macro focusing on floor carpet
-                                      : activeShot === 3
-                                        ? { scale: [1.3, 1.45], x: [-20, 20], y: [-20, -15], originX: 0.5, originY: 0.8 } // Low tracking angles
-                                        : { scale: [1.2, 1.02], x: [0, 0], y: [5, 0], originX: 0.5, originY: 0.5 } // Wide pullback
-                                ) : {})
-                              }}
-                              transition={{
-                                duration: activeShot === 1 ? 3.5 : activeShot === 2 ? 3 : activeShot === 3 ? 2.5 : 2.5,
-                                ease: "easeInOut"
-                              }}
-                            >
-                              <img 
-                                src={
-                                  activeShot === 2 
-                                    ? (modelImage || resultImage || undefined) 
-                                    : activeShot === 3 
-                                      ? (modelFrontImage || modelImage || resultImage || undefined) 
-                                      : (resultImage || undefined)
-                                } 
-                                className="w-full h-full object-cover select-none pointer-events-none" 
-                              />
-                            </motion.div>
+                            {[1, 2, 3, 4].map((shotId) => {
+                              // We compute the opacity/transform dynamically based on playbackTime
+                              let opacity = 0;
+                              let scale = 1.0;
+                              let translateX = 0;
+                              let translateY = 0;
 
-                            {/* Lighting Gradient sheen pass swept across the surface by custom activeShot configs */}
-                            <motion.div 
-                              key={`sheen-${activeShot}`}
-                              className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/20 pointer-events-none"
-                              animate={{
-                                opacity: activeShot === 2 ? [0.2, 0.55, 0.2] : activeShot === 4 ? [0.1, 0.7, 0.2] : [0.3, 0.4, 0.3],
-                              }}
-                              transition={{ duration: 3, repeat: Infinity }}
-                            />
+                              const fadeDuration = 0.5; // seconds for crossfade
 
-                            {/* Sun flash sweeps across the image in Cut 4 */}
-                            {activeShot === 4 && (
+                              if (shotId === 1) {
+                                if (playbackTime < 2.5) {
+                                  opacity = playbackTime >= (2.5 - fadeDuration)
+                                    ? (2.5 - playbackTime) / fadeDuration
+                                    : 1;
+                                  // Dolly in gently
+                                  scale = 1.02 + (playbackTime / 2.5) * 0.08;
+                                  translateX = -10 + (playbackTime / 2.5) * 15;
+                                  translateY = (playbackTime / 2.5) * 3;
+                                } else if (playbackTime >= 10.0 - fadeDuration) {
+                                  // loop fade-in transition
+                                  opacity = (playbackTime - (10.0 - fadeDuration)) / fadeDuration;
+                                  scale = 1.02;
+                                  translateX = -10;
+                                  translateY = 0;
+                                }
+                              } else if (shotId === 2) {
+                                if (playbackTime >= 2.5 - fadeDuration && playbackTime < 5.0) {
+                                  if (playbackTime < 2.5) {
+                                    opacity = (playbackTime - (2.5 - fadeDuration)) / fadeDuration;
+                                  } else if (playbackTime >= (5.0 - fadeDuration)) {
+                                    opacity = (5.0 - playbackTime) / fadeDuration;
+                                  } else {
+                                    opacity = 1;
+                                  }
+                                  const progress = (playbackTime - 2.5) / 2.5;
+                                  // Close-up Macro shift to carpet tactile details
+                                  scale = 2.0 + progress * 0.25;
+                                  translateX = 8 - progress * 16;
+                                  translateY = -55 + progress * 8;
+                                }
+                              } else if (shotId === 3) {
+                                if (playbackTime >= 5.0 - fadeDuration && playbackTime < 7.5) {
+                                  if (playbackTime < 5.0) {
+                                    opacity = (playbackTime - (5.0 - fadeDuration)) / fadeDuration;
+                                  } else if (playbackTime >= (7.5 - fadeDuration)) {
+                                    opacity = (7.5 - playbackTime) / fadeDuration;
+                                  } else {
+                                    opacity = 1;
+                                  }
+                                  const progress = (playbackTime - 5.0) / 2.5;
+                                  // Sideways gentle lifestyle drift
+                                  scale = 1.22 + progress * 0.12;
+                                  translateX = -12 + progress * 24;
+                                  translateY = -12 + progress * 4;
+                                }
+                              } else if (shotId === 4) {
+                                if (playbackTime >= 7.5 - fadeDuration && playbackTime < 10.0) {
+                                  if (playbackTime < 7.5) {
+                                    opacity = (playbackTime - (7.5 - fadeDuration)) / fadeDuration;
+                                  } else if (playbackTime >= (10.0 - fadeDuration)) {
+                                    opacity = (10.0 - playbackTime) / fadeDuration;
+                                  } else {
+                                    opacity = 1;
+                                  }
+                                  const progress = (playbackTime - 7.5) / 2.5;
+                                  // Calm pullback looking at whole room setting
+                                  scale = 1.15 - progress * 0.11;
+                                  translateX = 8 - progress * 8;
+                                  translateY = 4 - progress * 4;
+                                }
+                              }
+
+                              return (
+                                <div 
+                                  key={shotId}
+                                  className="absolute inset-0 w-full h-full"
+                                  style={{
+                                    opacity,
+                                    transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+                                    transition: "opacity 0.04s linear",
+                                    pointerEvents: opacity > 0.1 ? "auto" : "none",
+                                    zIndex: opacity > 0.1 ? 5 : 1
+                                  }}
+                                >
+                                  <img 
+                                    src={
+                                      shotId === 2 
+                                        ? (modelImage || resultImage || undefined) 
+                                        : shotId === 3 
+                                          ? (modelFrontImage || modelImage || resultImage || undefined) 
+                                          : (resultImage || undefined)
+                                    } 
+                                    className="w-full h-full object-cover select-none pointer-events-none" 
+                                  />
+                                </div>
+                              );
+                            })}
+
+                            {/* Watermark brand text at the beginning of loop */}
+                            {playbackTime < 2.0 && (
                               <motion.div 
-                                className="absolute inset-0 bg-amber-500/10 pointer-events-none mix-blend-screen"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: [0, 0.3, 0] }}
-                                transition={{ duration: 2.8, ease: "easeOut" }}
-                              />
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 0.85, scale: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute z-20 inset-0 flex flex-col items-center justify-center pointer-events-none"
+                              >
+                                <h1 className="text-3xl sm:text-5xl font-sans tracking-[0.25em] text-white font-light select-none drop-shadow-md">
+                                  SAIBOSI
+                                </h1>
+                              </motion.div>
                             )}
 
-                            {/* Cross-hair overlay representing high-end movie camera screen */}
-                            <div className="absolute inset-4 border border-white/5 pointer-events-none flex items-center justify-center">
-                              <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-white/20" />
-                              <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-white/20" />
-                              <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-white/20" />
-                              <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-white/20" />
-                              <div className="w-2.5 h-2.5 border border-white/25 rounded-full" />
-                            </div>
+                            {/* Subtitle milestones overlay text */}
+                            {playbackTime >= 2.0 && playbackTime < 4.5 && (
+                              <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 0.9 }}
+                                className="absolute bottom-16 sm:bottom-20 z-20 inset-x-0 text-center pointer-events-none"
+                              >
+                                <div className="bg-black/50 backdrop-blur px-4 py-1.5 rounded-full inline-block text-white text-[10px] sm:text-xs font-medium tracking-wider drop-shadow-sm">
+                                  「 橡木低语 」 原木无胶防水防潮地毯
+                                </div>
+                              </motion.div>
+                            )}
 
-                            {/* Center grid lines */}
-                            <div className="absolute inset-x-0 top-1/2 h-[1px] bg-white/5 pointer-events-none" />
-                            <div className="absolute inset-y-0 left-1/2 w-[1px] bg-white/5 pointer-events-none" />
+                            {playbackTime >= 4.5 && playbackTime < 7.5 && (
+                              <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 0.9 }}
+                                className="absolute bottom-16 sm:bottom-20 z-20 inset-x-0 text-center pointer-events-none"
+                              >
+                                <div className="bg-black/50 backdrop-blur px-4 py-1.5 rounded-full inline-block text-white text-[10px] sm:text-xs font-medium tracking-wider drop-shadow-sm">
+                                  松软包裹的踩沙脚感 · 暖意入怀
+                                </div>
+                              </motion.div>
+                            )}
 
-                            {/* Bottom Ambient HUD displaying camera details */}
-                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent p-4 pt-10 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between text-white">
-                              <div className="flex items-center gap-3">
-                                <button 
-                                  onClick={() => setSimulationPlaying(!simulationPlaying)}
-                                  className="bg-amber-500 hover:bg-amber-650 p-2.5 rounded-xl transition-all shadow-md active:scale-90 shrink-0"
+                            {playbackTime >= 7.5 && (
+                              <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 0.9 }}
+                                className="absolute bottom-16 sm:bottom-20 z-20 inset-x-0 text-center pointer-events-none"
+                              >
+                                <div className="bg-black/50 backdrop-blur px-4 py-1.5 rounded-full inline-block text-white text-[10px] sm:text-xs font-medium tracking-wider drop-shadow-sm">
+                                  无惧地暖 · 无胶无甲醛高安全品质
+                                </div>
+                              </motion.div>
+                            )}
+
+                            {/* Warm lighting sweep transition at the final pullback */}
+                            <motion.div 
+                              className="absolute inset-0 bg-amber-500/5 pointer-events-none mix-blend-screen z-10"
+                              animate={{ 
+                                opacity: playbackTime >= 7.0 ? [0, 0.2, 0] : [0, 0, 0] 
+                              }}
+                              transition={{ duration: 3, ease: "easeInOut" }}
+                            />
+
+                            {/* Luxurious Minimalist Player Controls HUD Overlay */}
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-4 pt-12 flex flex-col gap-3 z-30">
+                              {/* Continuous seek progress track */}
+                              <div 
+                                className="w-full bg-white/20 hover:bg-white/30 h-1 rounded-full cursor-pointer relative transition-all"
+                                onClick={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const clickX = e.clientX - rect.left;
+                                  const percentage = clickX / rect.width;
+                                  setPlaybackTime(percentage * 10.0);
+                                }}
+                              >
+                                <div 
+                                  className="bg-amber-500 h-full relative rounded-full"
+                                  style={{ width: `${(playbackTime / 10.0) * 100}%` }}
                                 >
-                                  {simulationPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white" />}
-                                </button>
-                                <div className="space-y-0.5 text-left">
-                                  <div className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-ping shrink-0" />
-                                    REC SHOT 0{activeShot}/04
-                                  </div>
-                                  <div className="text-xs font-bold text-white tracking-wide">
-                                    {activeShot === 1 && "分镜 1: 3D全景平滑平移推轨 (0-2s)"}
-                                    {activeShot === 2 && "分镜 2: 触感特写与铺设细节 (2-5s)"}
-                                    {activeShot === 3 && "分镜 3: 整体家居优雅调性呈现 (5-8s)"}
-                                    {activeShot === 4 && "分镜 4: 无底胶环保编织品质感 (8-10s)"}
-                                  </div>
+                                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-md" />
                                 </div>
                               </div>
-                              <div className="text-right space-y-0.5 text-[9px] font-mono text-slate-400">
-                                <div className="text-amber-500/80 font-bold">10s DYNAMIC COMMERCIAL</div>
-                                <div>RESOLUTION: 1080P PRORES</div>
-                              </div>
-                            </div>
 
-                            {/* Simulation tag */}
-                            <div className="absolute top-4 left-4 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-md border border-amber-600 flex items-center gap-1.5 shadow-md">
-                              <Sparkles className="w-3.5 h-3.5" /> 仿真互动分镜
+                              <div className="flex items-center justify-between text-white text-xs">
+                                <div className="flex items-center gap-4">
+                                  {/* Minimal Play / Pause button */}
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSimulationPlaying(!simulationPlaying);
+                                    }}
+                                    className="bg-amber-500 hover:bg-amber-600 p-2 rounded-xl transition-all shadow-md active:scale-90 text-white flex items-center justify-center shrink-0"
+                                  >
+                                    {simulationPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                                  </button>
+
+                                  {/* Dynamic timestamp render */}
+                                  <span className="font-mono text-xs text-white/90 font-medium tracking-wider">
+                                    {playbackTime.toFixed(1)}s <span className="text-white/35">/</span> 10.0s
+                                  </span>
+                                </div>
+
+                                <div className="text-[10px] sm:text-xs font-semibold tracking-wider text-white/70 flex items-center gap-1.5 font-sans">
+                                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                                  SAIBOSI 橡木低语 · 电影级高端展示视频
+                                </div>
+                              </div>
                             </div>
                           </div>
 
