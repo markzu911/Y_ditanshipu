@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, GenerateVideosOperation } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -10,13 +10,225 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const genAI = new GoogleGenAI({ 
+  apiKey: process.env.GEMINI_API_KEY || "",
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build'
+    }
+  }
+});
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json({ limit: '50mb' }));
+
+  // AI Video Display API endpoints
+  app.post("/api/video/generate", async (req, res) => {
+    const { imageBase64, userId, toolId, aspectRatio } = req.body;
+    if (!imageBase64) {
+      return res.status(400).json({ error: "imageBase64 is required" });
+    }
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "GEMINI_API_KEY is not configured in secrets." });
+      }
+
+      console.log("Analyzing generated image first...");
+      // Parse base64
+      const base64Data = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;
+      const mimeType = imageBase64.includes(",") ? imageBase64.split(",")[0].match(/:(.*?);/)?.[1] || "image/jpeg" : "image/jpeg";
+
+      const genAIClient = new GoogleGenAI({ 
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build'
+          }
+        }
+      });
+      
+      const analysisResponse = await genAIClient.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [
+          {
+            inlineData: {
+              data: base64Data,
+              mimeType: mimeType
+            }
+          },
+          {
+            text: "请对这张已经铺好地毯的房间场景图进行深度视觉分析。识别房间空间结构、地毯位置、材质纹理、光影方向、透视关系与整体装修风格，然后基于该图片自动生成一个约 10 秒的高质量动态展示视频所需的Veo Prompt。\n\n请严格按指定JSON schema输出您的分析与最终的Veo英文视频提示词。"
+          }
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              spatialStructure: { type: "STRING", description: "空间结构与透视关系分析" },
+              carpetDetails: { type: "STRING", description: "地毯位置、花色设计与材质纹理分析" },
+              themeStyle: { type: "STRING", description: "整体装修风格、家具搭配与光影方向分析" },
+              veoPrompt: { type: "STRING", description: "Veo 视频生成英文提示词。要求描述缓慢运镜、微距细节、高端家居广告风格，保持地毯形态色彩完全原本一致不失真。" }
+            },
+            required: ["spatialStructure", "carpetDetails", "themeStyle", "veoPrompt"]
+          }
+        }
+      });
+
+      const text = analysisResponse.text?.trim() || "{}";
+      let parsedAnalysis: any = {};
+      try {
+        parsedAnalysis = JSON.parse(text);
+      } catch (e) {
+        console.error("Failed to parse analysis JSON, using fallbacks.", text);
+        parsedAnalysis = {
+          spatialStructure: "3D透视角度，地毯平铺于地面并延伸至沙发下方，视平线高度适中，具备良好的空间深度感。",
+          carpetDetails: "地毯比例和大小合理，形状平整且四边与家具完美贴合。纤维编织紧密，纹理清洗，高度保持原作细节。",
+          themeStyle: "现代雅致室内陈设，中性色彩格调为主，光线自左侧窗外照入，呈现柔和明暗和真实的自然投影效果。",
+          veoPrompt: "A high-end cinematic commercial showcasing a premium carpet in a modern living room, slow dolly in, steady planning, soft warm lighting, photorealistic interior architectural photography, detailed fabric texture, UHD 4k"
+        };
+      }
+
+      console.log("Visual analysis succeeded: ", parsedAnalysis);
+
+      console.log("Triggering Veo model video generation with prompt:", parsedAnalysis.veoPrompt);
+      
+      // Determine the aspect ratio (landscape 16:9 or portrait 9:16)
+      let videoRatio: "16:9" | "9:16" = "16:9";
+      if (aspectRatio === "9:16" || aspectRatio === "3:4") {
+        videoRatio = "9:16";
+      }
+
+      const operation = await genAIClient.models.generateVideos({
+        model: "veo-3.1-lite-generate-preview",
+        prompt: parsedAnalysis.veoPrompt,
+        image: {
+          imageBytes: base64Data,
+          mimeType: mimeType
+        },
+        config: {
+          numberOfVideos: 1,
+          resolution: "1080p",
+          aspectRatio: videoRatio
+        }
+      });
+
+      console.log("Veo operation launched:", operation.name);
+
+      return res.json({
+        success: true,
+        operationName: operation.name,
+        visualAnalysis: {
+          spatialStructure: parsedAnalysis.spatialStructure,
+          carpetDetails: parsedAnalysis.carpetDetails,
+          themeStyle: parsedAnalysis.themeStyle
+        },
+        promptUsed: parsedAnalysis.veoPrompt
+      });
+
+    } catch (error: any) {
+      console.error("Video Generation Route Failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "An error occurred during video generation."
+      });
+    }
+  });
+
+  app.post("/api/video/status", async (req, res) => {
+    const { operationName } = req.body;
+    if (!operationName) {
+      return res.status(400).json({ error: "operationName is required" });
+    }
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+      }
+
+      const genAIClient = new GoogleGenAI({ 
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build'
+          }
+        }
+      });
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
+
+      const updated = await genAIClient.operations.getVideosOperation({ operation: op });
+      
+      console.log(`Veo video operation lookup: ${operationName}. Done: ${updated.done}`);
+      
+      res.json({
+        success: true,
+        done: updated.done,
+        error: updated.error
+      });
+    } catch (error: any) {
+      console.error("Video Status Route Failed:", error);
+      res.status(500).json({ success: false, error: error.message || "Internal server error" });
+    }
+  });
+
+  app.get("/api/video/stream", async (req, res) => {
+    const { operationName } = req.query;
+    if (!operationName || typeof operationName !== "string") {
+      return res.status(400).send("operationName query parameter is required");
+    }
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).send("GEMINI_API_KEY is not configured");
+      }
+
+      const genAIClient = new GoogleGenAI({ 
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build'
+          }
+        }
+      });
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
+
+      const updated = await genAIClient.operations.getVideosOperation({ operation: op });
+      const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
+      if (!uri) {
+        return res.status(404).send("Video content not found or generation not completed.");
+      }
+
+      console.log(`Downloading compiled video from Veo Storage: ${uri}`);
+      const videoRes = await fetch(uri, {
+        headers: { 'x-goog-api-key': apiKey },
+      });
+
+      if (!videoRes.ok) {
+        return res.status(videoRes.status).send(`Failed to fetch video from google storage: ${videoRes.statusText}`);
+      }
+
+      res.setHeader('Content-Type', 'video/mp4');
+      
+      if (videoRes.body) {
+        const arrayBuffer = await videoRes.arrayBuffer();
+        res.send(Buffer.from(arrayBuffer));
+      } else {
+        res.status(500).send("Failed to capture video body stream");
+      }
+    } catch (error: any) {
+      console.error("Video Download Route Failed:", error);
+      res.status(500).send(`Stream error: ${error.message}`);
+    }
+  });
 
   // SaaS & Gemini Proxy Routes
   app.all("/api/*", async (req, res) => {
