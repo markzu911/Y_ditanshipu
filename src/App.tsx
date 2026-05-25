@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Upload, 
@@ -11,11 +11,7 @@ import {
   Info,
   Maximize,
   X,
-  ArrowLeft,
-  Film,
-  Play,
-  Pause,
-  Loader2
+  ArrowLeft
 } from "lucide-react";
 import { 
   analyzeRoom, 
@@ -37,11 +33,6 @@ import {
   uploadResultImage,
   createRequestId
 } from "./services/saasService";
-import {
-  generateVideo,
-  checkVideoStatus,
-  VisualAnalysis
-} from "./services/videoService";
 
 type Step = "room" | "carpet" | "generate" | "result";
 
@@ -125,147 +116,7 @@ export default function App() {
   const [saasContext, setSaasContext] = useState<string>("");
   const [saasPrompt, setSaasPrompt] = useState<string[]>([]);
 
-  // AI Video Display States
-  const [showVideoPanel, setShowVideoPanel] = useState(false);
-  const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoError, setVideoError] = useState<string | null>(null);
-  const [videoAnalysis, setVideoAnalysis] = useState<VisualAnalysis | null>(null);
-  const [videoPromptUsed, setVideoPromptUsed] = useState<string | null>(null);
-  const [videoProgressPercent, setVideoProgressPercent] = useState(0);
-  const [videoProgressText, setVideoProgressText] = useState("");
-  const [isSimulation, setIsSimulation] = useState(false);
-  const [simulationPlaying, setSimulationPlaying] = useState(false);
-  const [selectedMovement, setSelectedMovement] = useState<"dolly" | "orbit" | "macro">("dolly");
-  const [activeShot, setActiveShot] = useState<1 | 2 | 3 | 4>(1);
-  const [playbackTime, setPlaybackTime] = useState<number>(0);
-
-  // Automatic high-frequency seamless timeline interval for buttery smooth simulation
-  useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-    if (isSimulation && simulationPlaying) {
-      const intervalMs = 40; // 25 FPS update speed for cinematic render simulation
-      timer = setInterval(() => {
-        setPlaybackTime((prev) => {
-          const next = prev + intervalMs / 1000;
-          const capped = next >= 10.0 ? 0 : next;
-          // Sync active shot for label displays
-          const derivedShot = Math.min(4, Math.floor(capped / 2.5) + 1) as 1 | 2 | 3 | 4;
-          setActiveShot(derivedShot);
-          return capped;
-        });
-      }, intervalMs);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [isSimulation, simulationPlaying]);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleGenerateVideo = async () => {
-    if (!resultImage) return;
-    
-    setShowVideoPanel(true);
-    setIsVideoLoading(true);
-    setVideoError(null);
-    setVideoUrl(null);
-    setVideoAnalysis(null);
-    setIsSimulation(false);
-    setVideoProgressPercent(5);
-    setVideoProgressText("🔍 智能视觉传感器正在开启，准备捕捉画面...");
-
-    // Advance visual loading indicator gracefully
-    let progress = 5;
-    const progressTimer = setInterval(() => {
-      progress += Math.floor(Math.random() * 8) + 2;
-      if (progress > 95) progress = 95; // freeze at 95% until complete
-      setVideoProgressPercent(progress);
-
-      if (progress < 20) {
-        setVideoProgressText("📐 识别房间三维空间透视关系与家具环境比例...");
-      } else if (progress < 40) {
-        setVideoProgressText("🧶 提取地毯材质纹理、纤维细节与边界设计...");
-      } else if (progress < 60) {
-        setVideoProgressText("💡 智能校对现场环境微观光源、透视比例与自然影子阴影方向...");
-      } else if (progress < 80) {
-        setVideoProgressText("📹 正在解算 3D 摄影机运镜、横向环绕轻微运动航迹线...");
-      } else {
-        setVideoProgressText("📦 视觉解算完成！Veo 正在进行高质量 10 秒动态合帧与高质感高级家居氛围渲染...");
-      }
-    }, 4500);
-
-    try {
-      // Trigger API call
-      const res = await generateVideo(
-        resultImage,
-        userId,
-        toolId,
-        params.aspectRatio
-      );
-
-      if (!res.success || !res.operationName) {
-        throw new Error(res.error || "未能成功创建视频生成操作");
-      }
-
-      // We have visual analysis! Keep it
-      if (res.visualAnalysis) {
-        setVideoAnalysis(res.visualAnalysis);
-      }
-      if (res.promptUsed) {
-        setVideoPromptUsed(res.promptUsed);
-      }
-
-      // Poll status
-      const operationName = res.operationName;
-      let isDone = false;
-      let checkCount = 0;
-
-      while (!isDone && checkCount < 60) { // Limit to ~5 minutes maximum
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-        checkCount++;
-
-        const statusRes = await checkVideoStatus(operationName);
-        if (statusRes.done) {
-          isDone = true;
-          if (statusRes.error) {
-            throw new Error(statusRes.error.message || `视频渲染任务未成功完结 (Code: ${statusRes.error.code})`);
-          }
-          break;
-        }
-      }
-
-      if (!isDone) {
-        throw new Error("视频生成超时，服务器排队较长。即将自动切换至三维沉浸仿真展示。");
-      }
-
-      // Success! Set video URL and end progress
-      clearInterval(progressTimer);
-      setVideoProgressPercent(100);
-      setVideoProgressText("✨ 商业级高清空间透视试铺视频渲染完毕！");
-      setVideoUrl(`/api/video/stream?operationName=${encodeURIComponent(operationName)}`);
-      setIsVideoLoading(false);
-
-    } catch (error: any) {
-      clearInterval(progressTimer);
-      console.error("Real Veo generation failed, switching to simulation:", error);
-      
-      // Let's create a beautiful visual explanation and fallback simulation
-      setVideoError(error.message || "由于外部 API 账户未激活或今日频次超额，视频暂时无法导出为原始 MP4。我们已自动为您激活「三维空间沉浸式交互仿真」！");
-      
-      // Build a beautiful simulated analysis based on the actual room
-      setVideoAnalysis({
-        spatialStructure: "3D透视角度：识别房间为精装修现代格局，地毯处于正中心，四边与家具平直完美贴实，具有极佳的空间纵深延伸。",
-        carpetDetails: "原本细节无损：保持与原始图片中地毯的材质纹理、颜色、比例、大小以及原厂剪绒工艺完全一致，无任何像素漂移。",
-        themeStyle: "商业级漫反射：模拟真实摄影机缓慢推轨，配合左上侧通透采光流转，呈现光影流动的细腻渐变与高级家居感。"
-      });
-      setVideoPromptUsed(`A cinematic slow-panning showcase video demonstrating a high-end carpet in a realistic architectural room layout, slow dolly camera motion, rich texture mapping, volumetric home atmosphere, 10 seconds.`);
-
-      setIsSimulation(true);
-      setIsVideoLoading(false);
-      setSimulationPlaying(true);
-    }
-  };
 
   // Initialize tool and fetch user info
   React.useEffect(() => {
@@ -482,13 +333,6 @@ export default function App() {
     setModelFrontImage(null);
     setGenError(null);
     setUsePredefinedStyle(false);
-    setShowVideoPanel(false);
-    setIsVideoLoading(false);
-    setVideoUrl(null);
-    setVideoError(null);
-    setVideoAnalysis(null);
-    setVideoPromptUsed(null);
-    setIsSimulation(false);
   };
 
   return (
@@ -1267,7 +1111,44 @@ export default function App() {
                         </motion.div>
                       ) : (
                         <div className="text-center p-4">
-                            <p className="text-[10px] text-slate-400">生成失败</p>
+                            <p className="text-[10px] text-slate-400">渲染失败</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Model Front View */}
+                {params.hasModel && (
+                  <div className="space-y-2">
+                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] text-center">坐姿正面视角 (Frontal)</h3>
+                    <div 
+                      onClick={() => modelFrontImage && !isGenerating && setPreviewImage(modelFrontImage)}
+                      className={`relative bg-white rounded-xl overflow-hidden shadow-lg border border-slate-200 aspect-square flex items-center justify-center ${modelFrontImage && !isGenerating ? 'cursor-zoom-in' : ''}`}
+                    >
+                      {!modelFrontImage && isGenerating ? (
+                        <div className="text-center space-y-4">
+                          <div className="w-12 h-12 border-4 border-slate-50 border-t-indigo-600 rounded-full animate-spin mx-auto" />
+                          <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest animate-pulse">Modeling...</span>
+                        </div>
+                      ) : modelFrontImage ? (
+                        <motion.div 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="w-full h-full"
+                        >
+                          <img src={modelFrontImage} alt="Model Front Interaction Result" className="w-full h-full object-cover" />
+                          <a 
+                            href={modelFrontImage} 
+                            download="carpet-fitting-lifestyle-front.png"
+                            className="absolute bottom-3 right-3 bg-white/90 backdrop-blur rounded-lg p-2 shadow-md hover:bg-white transition-all border border-slate-200"
+                          >
+                            <Download className="w-4 h-4 text-indigo-600" />
+                          </a>
+                        </motion.div>
+                      ) : (
+                        <div className="text-center p-4">
+                            <p className="text-[10px] text-slate-400">渲染失败</p>
                         </div>
                       )}
                     </div>
@@ -1275,324 +1156,17 @@ export default function App() {
                 )}
               </div>
 
-              {/* AI Video Display Section */}
-              {showVideoPanel && (
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6 mt-8 max-w-4xl mx-auto"
-                >
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200 font-mono">
-                          VEO PRO 10S
-                        </span>
-                        <h3 className="text-lg font-bold text-slate-800">
-                          🎬 AI 视频试铺效果展示
-                        </h3>
-                      </div>
-                      <p className="text-xs text-slate-400">
-                        基于真实的房间结构与地毯细节，通过高清 AI 渲染 10 秒多镜头电影级广告视频
-                      </p>
-                    </div>
-
-                    {isSimulation && (
-                      <span className="text-[10px] bg-sky-50 text-sky-700 font-bold px-3 py-1 rounded-full border border-sky-100 uppercase tracking-wider">
-                        ✨ 已自动激活三维沉浸仿真
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col space-y-6">
-                    {/* Unified Video Showcase Viewport */}
-                    <div className="w-full">
-                      {isVideoLoading ? (
-                        <div className="relative bg-slate-950 rounded-2xl aspect-[16/9] overflow-hidden flex flex-col items-center justify-center p-6 border border-slate-800 shadow-inner">
-                          {/* Ambient background shadow */}
-                          {resultImage && (
-                            <img src={resultImage} className="absolute inset-0 w-full h-full object-cover opacity-10 blur-sm brightness-50" />
-                          )}
-                          
-                          {/* Delicate Scanner Ring */}
-                          <div className="relative w-28 h-28 flex items-center justify-center mb-6">
-                            <svg className="w-full h-full transform -rotate-90">
-                              <circle cx="56" cy="56" r="48" fill="transparent" stroke="rgba(245,158,11,0.1)" strokeWidth="6" />
-                              <circle 
-                                cx="56" 
-                                cy="56" 
-                                r="48" 
-                                fill="transparent" 
-                                stroke="#f59e0b" 
-                                strokeWidth="6" 
-                                strokeDasharray="301.6" 
-                                strokeDashoffset={301.6 - (301.6 * videoProgressPercent) / 100}
-                                strokeLinecap="round"
-                                className="transition-all duration-300"
-                              />
-                            </svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                              <span className="text-xl font-black text-amber-500">{videoProgressPercent}%</span>
-                              <span className="text-[8px] text-slate-500 font-bold tracking-widest uppercase">Progress</span>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2 text-center max-w-md z-10">
-                            <p className="text-xs font-bold text-amber-500 flex items-center justify-center gap-1.5 animate-pulse">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> {videoProgressText}
-                            </p>
-                            <p className="text-[10px] text-slate-500">
-                              高精度 3D 传感器重构中，首次生成约需 1 分钟左右，请不要刷新页面
-                            </p>
-                          </div>
-
-                          {/* Top-down scanning ray */}
-                          <motion.div 
-                            initial={{ top: 0 }}
-                            animate={{ top: "100%" }}
-                            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                            className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent shadow-[0_0_15px_rgba(245,158,11,0.4)]"
-                          />
-                        </div>
-                      ) : videoUrl ? (
-                        <div className="relative bg-slate-900 rounded-2xl aspect-[16/9] overflow-hidden group border border-slate-200 shadow-xl flex items-center justify-center">
-                          <video 
-                            src={videoUrl} 
-                            controls 
-                            autoPlay 
-                            loop 
-                            playsInline
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute top-4 left-4 bg-black/60 backdrop-blur text-[10px] font-bold text-white px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
-                            高清 Veo MP4 媒体流已挂载
-                          </div>
-                          
-                          <a 
-                            href={videoUrl} 
-                            download="carpet-fitting-showcase.mp4"
-                            className="absolute bottom-4 right-4 bg-amber-500 text-white rounded-xl p-2.5 shadow-lg hover:bg-amber-600 transition-all text-xs font-bold flex items-center gap-1.5 border border-amber-600 opacity-0 group-hover:opacity-100"
-                          >
-                            <Download className="w-4 h-4" /> 导出视频 (MP4)
-                          </a>
-                        </div>
-                      ) : isSimulation ? (
-                        <div className="space-y-4">
-                          {/* Main Simulated Viewport with Elegant Cinematic Cross-fades */}
-                          <div className="relative bg-slate-900 rounded-2xl aspect-[16/9] overflow-hidden border border-slate-200/80 shadow-2xl flex items-center justify-center group/player">
-                            
-                            {[1, 2, 3, 4].map((shotId) => {
-                              // We compute the opacity/transform dynamically based on playbackTime
-                              let opacity = 0;
-                              let scale = 1.0;
-                              let translateX = 0;
-                              let translateY = 0;
-
-                              const fadeDuration = 0.5; // seconds for crossfade
-
-                              if (shotId === 1) {
-                                if (playbackTime < 2.5) {
-                                  opacity = playbackTime >= (2.5 - fadeDuration)
-                                    ? (2.5 - playbackTime) / fadeDuration
-                                    : 1;
-                                  // Dolly in gently
-                                  scale = 1.02 + (playbackTime / 2.5) * 0.08;
-                                  translateX = -10 + (playbackTime / 2.5) * 15;
-                                  translateY = (playbackTime / 2.5) * 3;
-                                } else if (playbackTime >= 10.0 - fadeDuration) {
-                                  // loop fade-in transition
-                                  opacity = (playbackTime - (10.0 - fadeDuration)) / fadeDuration;
-                                  scale = 1.02;
-                                  translateX = -10;
-                                  translateY = 0;
-                                }
-                              } else if (shotId === 2) {
-                                if (playbackTime >= 2.5 - fadeDuration && playbackTime < 5.0) {
-                                  if (playbackTime < 2.5) {
-                                    opacity = (playbackTime - (2.5 - fadeDuration)) / fadeDuration;
-                                  } else if (playbackTime >= (5.0 - fadeDuration)) {
-                                    opacity = (5.0 - playbackTime) / fadeDuration;
-                                  } else {
-                                    opacity = 1;
-                                  }
-                                  const progress = (playbackTime - 2.5) / 2.5;
-                                  // Close-up Macro shift to carpet tactile details
-                                  scale = 2.0 + progress * 0.25;
-                                  translateX = 8 - progress * 16;
-                                  translateY = -55 + progress * 8;
-                                }
-                              } else if (shotId === 3) {
-                                if (playbackTime >= 5.0 - fadeDuration && playbackTime < 7.5) {
-                                  if (playbackTime < 5.0) {
-                                    opacity = (playbackTime - (5.0 - fadeDuration)) / fadeDuration;
-                                  } else if (playbackTime >= (7.5 - fadeDuration)) {
-                                    opacity = (7.5 - playbackTime) / fadeDuration;
-                                  } else {
-                                    opacity = 1;
-                                  }
-                                  const progress = (playbackTime - 5.0) / 2.5;
-                                  // Sideways gentle lifestyle drift
-                                  scale = 1.22 + progress * 0.12;
-                                  translateX = -12 + progress * 24;
-                                  translateY = -12 + progress * 4;
-                                }
-                              } else if (shotId === 4) {
-                                if (playbackTime >= 7.5 - fadeDuration && playbackTime < 10.0) {
-                                  if (playbackTime < 7.5) {
-                                    opacity = (playbackTime - (7.5 - fadeDuration)) / fadeDuration;
-                                  } else if (playbackTime >= (10.0 - fadeDuration)) {
-                                    opacity = (10.0 - playbackTime) / fadeDuration;
-                                  } else {
-                                    opacity = 1;
-                                  }
-                                  const progress = (playbackTime - 7.5) / 2.5;
-                                  // Calm pullback looking at whole room setting
-                                  scale = 1.15 - progress * 0.11;
-                                  translateX = 8 - progress * 8;
-                                  translateY = 4 - progress * 4;
-                                }
-                              }
-
-                              return (
-                                <div 
-                                  key={shotId}
-                                  className="absolute inset-0 w-full h-full"
-                                  style={{
-                                    opacity,
-                                    transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
-                                    transition: "opacity 0.04s linear",
-                                    pointerEvents: opacity > 0.1 ? "auto" : "none",
-                                    zIndex: opacity > 0.1 ? 5 : 1
-                                  }}
-                                >
-                                  <img 
-                                    src={
-                                      shotId === 2 
-                                        ? (modelImage || resultImage || undefined) 
-                                        : shotId === 3 
-                                          ? (modelFrontImage || modelImage || resultImage || undefined) 
-                                          : (resultImage || undefined)
-                                    } 
-                                    className="w-full h-full object-cover select-none pointer-events-none" 
-                                  />
-                                </div>
-                              );
-                            })}
-
-                            {/* Warm lighting sweep transition at the final pullback */}
-                            <motion.div 
-                              className="absolute inset-0 bg-amber-500/5 pointer-events-none mix-blend-screen z-10"
-                              animate={{ 
-                                opacity: playbackTime >= 7.0 ? [0, 0.2, 0] : [0, 0, 0] 
-                              }}
-                              transition={{ duration: 3, ease: "easeInOut" }}
-                            />
-
-                            {/* Luxurious Minimalist Player Controls HUD Overlay */}
-                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-4 pt-12 flex flex-col gap-3 z-30">
-                              {/* Continuous seek progress track */}
-                              <div 
-                                className="w-full bg-white/20 hover:bg-white/30 h-1 rounded-full cursor-pointer relative transition-all"
-                                onClick={(e) => {
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  const clickX = e.clientX - rect.left;
-                                  const percentage = clickX / rect.width;
-                                  setPlaybackTime(percentage * 10.0);
-                                }}
-                              >
-                                <div 
-                                  className="bg-amber-500 h-full relative rounded-full"
-                                  style={{ width: `${(playbackTime / 10.0) * 100}%` }}
-                                >
-                                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-md" />
-                                </div>
-                              </div>
-
-                              <div className="flex items-center justify-between text-white text-xs">
-                                <div className="flex items-center gap-4">
-                                  {/* Minimal Play / Pause button */}
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSimulationPlaying(!simulationPlaying);
-                                    }}
-                                    className="bg-amber-500 hover:bg-amber-600 p-2 rounded-xl transition-all shadow-md active:scale-90 text-white flex items-center justify-center shrink-0"
-                                  >
-                                    {simulationPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                                  </button>
-
-                                  {/* Dynamic timestamp render */}
-                                  <span className="font-mono text-xs text-white/90 font-medium tracking-wider">
-                                    {playbackTime.toFixed(1)}s <span className="text-white/35">/</span> 10.0s
-                                  </span>
-                                </div>
-
-                                <div className="text-[10px] sm:text-xs font-semibold tracking-wider text-white/50 flex items-center gap-1.5 font-sans">
-                                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                                  电影大片级全景渲染仿真 (Cinematic Continuous Simulation)
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-
-
-                          {/* Sim explanation card */}
-                          {videoError && (
-                            <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl text-[10px] text-indigo-700 leading-relaxed font-medium flex items-start gap-2.5">
-                              <Info className="w-4 h-4 shrink-0 mt-0.5 text-indigo-500" />
-                              <div className="space-y-1">
-                                <span className="font-bold block">💡 为什么要提供交互仿真技术？</span>
-                                <span>Veo 视频大模型极度消耗算力且对 API 账户有高门槛配额限制。为了确保您获得流畅的产品体验，系统结合 Gemini Vision 的物理提取能力与原图，运用 3D Panning 智能视差镜头，模拟了 10 秒高透光线扫射和缓慢推轨，无损还原展示地毯本身的花纹、尺寸设计。</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl aspect-[16/9] flex flex-col items-center justify-center p-6 text-center">
-                          <Film className="w-12 h-12 text-slate-300 mb-2 animate-pulse" />
-                          <p className="text-xs font-bold text-slate-700">场景短视频未生成</p>
-                          <p className="text-[10px] text-slate-400 max-w-sm mt-1">
-                            点击下方的“立即渲染”按钮，启动 AI 对场景进行多维度视觉解析与融合生成。
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Simple Bottom Action to trigger re-renders */}
-                    {!isVideoLoading && (videoUrl || isSimulation) && (
-                      <div className="flex gap-4 justify-center">
-                        <button
-                          onClick={handleGenerateVideo}
-                          className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-md active:scale-95"
-                        >
-                          <RefreshCcw className="w-3.5 h-3.5 text-white" /> 重新渲染试铺展示视频
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-
               {!isGenerating && !genError && (
                 <motion.div 
-                   initial={{ opacity: 0, y: 10 }}
-                   animate={{ opacity: 1, y: 0 }}
-                   className="flex gap-3 justify-center pt-2"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-3 justify-center pt-2"
                 >
                   <button 
                     onClick={reset}
                     className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-50 transition-all shadow-sm"
                   >
                     <RefreshCcw className="w-4 h-4" /> 重新开始
-                  </button>
-                  <button 
-                    onClick={handleGenerateVideo}
-                    disabled={isVideoLoading}
-                    className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:from-amber-600 hover:to-amber-700 transition-all shadow-md shadow-amber-100 disabled:opacity-50"
-                  >
-                    <Film className="w-4 h-4" /> AI 视频展示
                   </button>
                   <button 
                     onClick={() => setCurrentStep("generate")}
