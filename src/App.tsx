@@ -90,6 +90,9 @@ export default function App() {
   const [modelFrontImage, setModelFrontImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [usePredefinedStyle, setUsePredefinedStyle] = useState(false);
+  const [uploadedRoomImage, setUploadedRoomImage] = useState<string | null>(null);
+  const [uploadedRoomAnalysis, setUploadedRoomAnalysis] = useState<string | null>(null);
+  const [predefinedStyleAnalysis, setPredefinedStyleAnalysis] = useState<string | null>(null);
 
   const predefinedStyles = [
     { id: "modern", name: "现代简约 (Modern)", desc: "配色纯净，线条利落，注重功能性与空间感的平衡。通常包含极简布艺沙发与几何感地板。" },
@@ -193,6 +196,7 @@ export default function App() {
 
         if (type === "room") {
           setRoomImage(dataUrl); // Set image immediately for visual feedback
+          setUploadedRoomImage(dataUrl); // Keep updated uploaded image!
           
           // Validate Room
           const validation = await validateIsRoom(base64);
@@ -204,6 +208,7 @@ export default function App() {
           
           const analysis = await analyzeRoom(base64);
           setRoomAnalysis(analysis);
+          setUploadedRoomAnalysis(analysis); // Keep updated uploaded analysis!
         } else {
           setCarpetImage(dataUrl); // Set image immediately for visual feedback
           
@@ -333,6 +338,9 @@ export default function App() {
     setModelFrontImage(null);
     setGenError(null);
     setUsePredefinedStyle(false);
+    setUploadedRoomImage(null);
+    setUploadedRoomAnalysis(null);
+    setPredefinedStyleAnalysis(null);
   };
 
   return (
@@ -347,12 +355,6 @@ export default function App() {
             <h1 className="text-lg sm:text-xl font-bold tracking-tight">AI 地毯试铺助手</h1>
           </div>
           <div className="flex items-center gap-3 sm:gap-6">
-            {integral !== null && (
-              <div className="flex items-center gap-1.5 sm:gap-2 bg-indigo-50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-indigo-100">
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 h-4 text-indigo-600" />
-                <span className="text-[10px] sm:text-sm font-bold text-indigo-700">积分: {integral}</span>
-              </div>
-            )}
             <nav className="hidden lg:flex items-center gap-8 text-sm font-medium">
               {["场景分析", "地毯匹配", "生成预览", "结果预览"].map((label, idx) => {
                 const steps: Step[] = ["room", "carpet", "generate", "result"];
@@ -388,6 +390,12 @@ export default function App() {
                 {currentStep === "result" && "步骤 4/4"}
               </div>
             </div>
+            {integral !== null && (
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-indigo-50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-indigo-100">
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 h-4 text-indigo-600" />
+                <span className="text-[10px] sm:text-sm font-bold text-indigo-700">积分: {integral}</span>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -412,8 +420,8 @@ export default function App() {
                   <button 
                     onClick={() => {
                         setUsePredefinedStyle(false);
-                        setRoomAnalysis(null);
-                        setRoomImage(null);
+                        setRoomImage(uploadedRoomImage);
+                        setRoomAnalysis(uploadedRoomAnalysis);
                     }}
                     className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${!usePredefinedStyle ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
                   >
@@ -422,8 +430,8 @@ export default function App() {
                   <button 
                     onClick={() => {
                         setUsePredefinedStyle(true);
-                        setRoomAnalysis(null);
                         setRoomImage(null);
+                        setRoomAnalysis(predefinedStyleAnalysis);
                     }}
                     className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${usePredefinedStyle ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
                   >
@@ -448,7 +456,6 @@ export default function App() {
                     <Upload className="text-indigo-600 w-8 h-8" />
                   </div>
                   <p className="text-base sm:text-lg font-medium text-slate-800">点击或拖拽上传房间场景图</p>
-                  <p className="text-slate-400 text-[10px] sm:text-sm mt-1">支持常见图片格式（如 JPG, PNG, WebP），最大支持 20MB（通过前端压缩上传）</p>
                   <div className="mt-8 grid grid-cols-3 gap-4 max-w-sm mx-auto opacity-30">
                     <div className="aspect-[4/3] bg-slate-200 rounded-lg animate-pulse" />
                     <div className="aspect-[4/3] bg-slate-200 rounded-lg animate-pulse delay-75" />
@@ -463,7 +470,9 @@ export default function App() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => {
-                        setRoomAnalysis(style.name + "：" + style.desc);
+                        const styleDesc = style.name + "：" + style.desc;
+                        setRoomAnalysis(styleDesc);
+                        setPredefinedStyleAnalysis(styleDesc);
                         setCurrentStep("carpet");
                       }}
                       className="bg-white border border-slate-200 rounded-2xl p-6 cursor-pointer hover:border-indigo-400 hover:shadow-xl hover:shadow-indigo-500/5 transition-all group"
@@ -477,7 +486,7 @@ export default function App() {
                   ))}
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 gap-8 items-start">
+                <div className="grid md:grid-cols-2 gap-8 items-stretch">
                   <div className="relative group overflow-hidden rounded-2xl ring-1 ring-black/5 shadow-xl bg-slate-200 aspect-[4/3] flex items-center justify-center">
                     {roomImage ? (
                         <img src={roomImage} alt="Room" className={`w-full h-full object-cover transition-all duration-1000 ${isAnalyzing ? "scale-105 blur-[2px] brightness-75" : "scale-100 blur-0 brightness-100"}`} />
@@ -539,20 +548,30 @@ export default function App() {
                       onClick={() => {
                           setRoomImage(null);
                           setRoomAnalysis(null);
+                          setUploadedRoomImage(null);
+                          setUploadedRoomAnalysis(null);
                       }}
                       className="absolute top-4 right-4 bg-white/90 backdrop-blur rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-20"
                     >
                       <RefreshCcw className="w-4 h-4 text-indigo-600" />
                     </button>
                   </div>
-                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-                      <div className="flex items-center justify-between">
+                  
+                  <div className="relative w-full h-full min-h-[350px] md:min-h-0">
+                    <div className="md:absolute md:inset-0 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+                      <div className="flex items-center justify-between shrink-0 mb-4">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{usePredefinedStyle ? "装修风格" : "场景分析"}</h3>
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => {
                                 setRoomImage(null);
                                 setRoomAnalysis(null);
+                                if (usePredefinedStyle) {
+                                  setPredefinedStyleAnalysis(null);
+                                } else {
+                                  setUploadedRoomImage(null);
+                                  setUploadedRoomAnalysis(null);
+                                }
                             }}
                             className="p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
                             title="返回修改场景"
@@ -568,42 +587,45 @@ export default function App() {
                         </div>
                       </div>
                       
-                      {analysisError && (
-                        <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-[10px] text-red-600 flex items-center gap-2">
-                           <Info className="w-3.5 h-3.5 shrink-0" />
-                           <span>{analysisError}</span>
-                        </div>
-                      )}
-                      
-                      {isAnalyzing ? (
-                        <div className="space-y-2">
-                          {[1, 2].map(i => (
-                            <div key={i} className="h-6 bg-slate-100 rounded-lg animate-pulse" />
-                          ))}
-                        </div>
-                      ) : (
-                        <motion.div 
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="grid grid-cols-1 gap-2"
-                        >
-                          {roomAnalysis?.split('\n').filter(line => line.trim()).map((line, idx) => (
-                            <div key={idx} className="flex gap-3 items-start p-2.5 rounded-lg bg-slate-50/80 border border-slate-100/50">
-                              <div className="w-1 h-3 bg-indigo-400 rounded-full mt-1 shrink-0" />
-                              <p className="text-xs text-slate-600 font-medium leading-relaxed">{line.replace(/^[-•]\s*/, '')}</p>
-                            </div>
-                          ))}
-                        </motion.div>
-                      )}
+                      <div className="flex-1 overflow-y-auto pr-1 min-h-0 space-y-3 custom-scrollbar mb-4">
+                        {analysisError && (
+                          <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-[10px] text-red-600 flex items-center gap-2">
+                             <Info className="w-3.5 h-3.5 shrink-0" />
+                             <span>{analysisError}</span>
+                          </div>
+                        )}
+                        
+                        {isAnalyzing ? (
+                          <div className="space-y-2">
+                            {[1, 2, 3].map(i => (
+                              <div key={i} className="h-6 bg-slate-100 rounded-lg animate-pulse" />
+                            ))}
+                          </div>
+                        ) : (
+                          <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="grid grid-cols-1 gap-2"
+                          >
+                            {roomAnalysis?.split('\n').filter(line => line.trim()).map((line, idx) => (
+                              <div key={idx} className="flex gap-3 items-start p-2.5 rounded-lg bg-slate-50/80 border border-slate-100/50">
+                                <div className="w-1 h-3 bg-indigo-400 rounded-full mt-1 shrink-0" />
+                                <p className="text-xs text-slate-600 font-medium leading-relaxed">{line.replace(/^[-•]\s*/, '')}</p>
+                              </div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </div>
                       
                       <button 
                         disabled={isAnalyzing || !roomAnalysis}
                         onClick={() => setCurrentStep("carpet")}
-                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md active:scale-[0.98]"
+                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md active:scale-[0.98] shrink-0"
                       >
                         下一步 <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
+                  </div>
                 </div>
               )}
             </motion.div>
@@ -620,8 +642,13 @@ export default function App() {
               <div className="flex flex-col items-center gap-4 relative">
                 <button 
                   onClick={() => {
-                    setRoomImage(null);
-                    setRoomAnalysis(null);
+                    if (usePredefinedStyle) {
+                      setRoomImage(null);
+                      setRoomAnalysis(predefinedStyleAnalysis);
+                    } else {
+                      setRoomImage(uploadedRoomImage);
+                      setRoomAnalysis(uploadedRoomAnalysis);
+                    }
                     setCurrentStep("room");
                   }}
                   className="absolute left-0 top-1.5 flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm group"
@@ -654,7 +681,7 @@ export default function App() {
                   <p className="text-slate-400 text-[10px] sm:text-sm mt-1">支持常见图片格式（如 JPG, PNG, WebP），最大支持 20MB（通过前端压缩上传）</p>
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 gap-8 items-start">
+                <div className="grid md:grid-cols-2 gap-8 items-stretch">
                   <div className="relative group overflow-hidden rounded-2xl ring-1 ring-black/5 shadow-xl bg-slate-200 aspect-[4/3] flex items-center justify-center">
                     <img src={carpetImage} alt="Carpet" className={`w-full h-full object-cover transition-all duration-1000 ${isAnalyzing ? "scale-110 blur-[1px] brightness-75" : "scale-100 blur-0 brightness-100"}`} />
                     
@@ -701,8 +728,10 @@ export default function App() {
                       <RefreshCcw className="w-4 h-4 text-indigo-600" />
                     </button>
                   </div>
-                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-                      <div className="flex items-center justify-between">
+                  
+                  <div className="relative w-full h-full min-h-[350px] md:min-h-0">
+                    <div className="md:absolute md:inset-0 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+                      <div className="flex items-center justify-between shrink-0 mb-4">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">材质分析</h3>
                         <div className="flex items-center gap-2">
                           <button 
@@ -724,39 +753,43 @@ export default function App() {
                         </div>
                       </div>
 
-                      {analysisError && (
-                        <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-[10px] text-red-600 flex items-center gap-2">
-                           <Info className="w-3.5 h-3.5 shrink-0" />
-                           <span>{analysisError}</span>
-                        </div>
-                      )}
+                      <div className="flex-1 overflow-y-auto pr-1 min-h-0 space-y-3 custom-scrollbar mb-4">
+                        {analysisError && (
+                          <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-[10px] text-red-600 flex items-center gap-2">
+                             <Info className="w-3.5 h-3.5 shrink-0" />
+                             <span>{analysisError}</span>
+                          </div>
+                        )}
+                        
+                        {isAnalyzing ? (
+                          <div className="space-y-2">
+                            <div className="h-6 bg-slate-100 rounded-lg animate-pulse" />
+                          </div>
+                        ) : (
+                          <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="grid grid-cols-1 gap-2"
+                          >
+                            {carpetAnalysis?.split('\n').filter(line => line.trim()).map((line, idx) => (
+                              <div key={idx} className="flex gap-3 items-start p-2.5 rounded-lg bg-slate-50/80 border border-slate-100/50">
+                                <div className="w-1 h-3 bg-indigo-400 rounded-full mt-1 shrink-0" />
+                                <p className="text-xs text-slate-600 font-medium leading-relaxed">{line.replace(/^[-•]\s*/, '')}</p>
+                              </div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </div>
                       
-                      {isAnalyzing ? (
-                        <div className="space-y-2">
-                          <div className="h-6 bg-slate-100 rounded-lg animate-pulse" />
-                        </div>
-                      ) : (
-                        <motion.div 
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="grid grid-cols-1 gap-2"
-                        >
-                          {carpetAnalysis?.split('\n').filter(line => line.trim()).map((line, idx) => (
-                            <div key={idx} className="flex gap-3 items-start p-2.5 rounded-lg bg-slate-50/80 border border-slate-100/50">
-                              <div className="w-1 h-3 bg-indigo-400 rounded-full mt-1 shrink-0" />
-                              <p className="text-xs text-slate-600 font-medium leading-relaxed">{line.replace(/^[-•]\s*/, '')}</p>
-                            </div>
-                          ))}
-                        </motion.div>
-                      )}
                       <button 
                         disabled={isAnalyzing || !carpetAnalysis}
                         onClick={() => setCurrentStep("generate")}
-                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-md active:scale-[0.98]"
+                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-md active:scale-[0.98] shrink-0"
                       >
                         预览配置 <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
+                  </div>
                 </div>
               )}
             </motion.div>
