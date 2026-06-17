@@ -665,7 +665,7 @@ export default function App() {
               {!carpetImage ? (
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="group relative border-2 border-dashed border-slate-200 hover:border-indigo-400 transition-all rounded-2xl p-8 sm:p-12 text-center cursor-pointer bg-slate-50/50 hover:bg-white"
+                  className="group relative border-2 border-dashed border-slate-200 hover:border-indigo-400 transition-all rounded-2xl p-12 text-center cursor-pointer bg-slate-50/50 hover:bg-white"
                 >
                   <input 
                     type="file" 
@@ -678,7 +678,11 @@ export default function App() {
                     <ImageIcon className="text-indigo-600 w-8 h-8" />
                   </div>
                   <p className="text-base sm:text-lg font-medium text-slate-800">点击或拖拽上传地毯图</p>
-                  <p className="text-slate-400 text-[10px] sm:text-sm mt-1">支持常见图片格式（如 JPG, PNG, WebP），最大支持 20MB（通过前端压缩上传）</p>
+                  <div className="mt-8 grid grid-cols-3 gap-4 max-w-sm mx-auto opacity-30">
+                    <div className="aspect-[4/3] bg-slate-200 rounded-lg animate-pulse" />
+                    <div className="aspect-[4/3] bg-slate-200 rounded-lg animate-pulse delay-75" />
+                    <div className="aspect-[4/3] bg-slate-200 rounded-lg animate-pulse delay-150" />
+                  </div>
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 gap-8 items-stretch">
