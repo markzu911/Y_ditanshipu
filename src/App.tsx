@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Upload, 
@@ -11,7 +11,8 @@ import {
   Info,
   Maximize,
   X,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from "lucide-react";
 import { 
   analyzeRoom, 
@@ -93,6 +94,17 @@ export default function App() {
   const [uploadedRoomImage, setUploadedRoomImage] = useState<string | null>(null);
   const [uploadedRoomAnalysis, setUploadedRoomAnalysis] = useState<string | null>(null);
   const [predefinedStyleAnalysis, setPredefinedStyleAnalysis] = useState<string | null>(null);
+  const [analysisStepIndex, setAnalysisStepIndex] = useState(0);
+
+  useEffect(() => {
+    if (isAnalyzing) {
+      setAnalysisStepIndex(0);
+      const timer = setInterval(() => {
+        setAnalysisStepIndex(prev => (prev + 1) % 4);
+      }, 2500);
+      return () => clearInterval(timer);
+    }
+  }, [isAnalyzing]);
 
   const predefinedStyles = [
     { id: "modern", name: "现代简约 (Modern)", desc: "配色纯净，线条利落，注重功能性与空间感的平衡。通常包含极简布艺沙发与几何感地板。" },
@@ -596,10 +608,67 @@ export default function App() {
                         )}
                         
                         {isAnalyzing ? (
-                          <div className="space-y-2">
-                            {[1, 2, 3].map(i => (
-                              <div key={i} className="h-6 bg-slate-100 rounded-lg animate-pulse" />
-                            ))}
+                          <div className="flex flex-col h-full justify-center py-4 space-y-6">
+                            {/* Animated Visual Loader */}
+                            <div className="flex flex-col items-center justify-center text-center gap-3">
+                              <div className="relative w-16 h-16 flex items-center justify-center">
+                                {/* Ripple effect */}
+                                <div className="absolute inset-0 rounded-full border border-indigo-100 animate-[ping_1.5s_infinite]" />
+                                <div className="absolute inset-2 rounded-full border border-indigo-200 animate-[ping_2s_infinite] delay-300" />
+                                
+                                {/* Inner spinning glowing indicator */}
+                                <div className="absolute inset-0 rounded-full border-2 border-slate-100 border-t-indigo-600 animate-spin" />
+                                <Sparkles className="w-6 h-6 text-indigo-600 animate-pulse" />
+                              </div>
+                              
+                              <div className="space-y-1">
+                                <span className="inline-flex px-2 py-0.5 rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-600 animate-pulse">
+                                  解析阶段 {analysisStepIndex + 1}/4
+                                </span>
+                                <h4 className="text-xs font-bold text-slate-800 transition-all duration-300 max-w-xs leading-relaxed px-4">
+                                  {analysisStepIndex === 0 && "🔍 正在拉取最新的多模态大模型解析方案..."}
+                                  {analysisStepIndex === 1 && "📐 智能标记地面、天花板及立面拐角定位点..."}
+                                  {analysisStepIndex === 2 && "💡 分析环境漫反射、主要光源和地毯暗部细节..."}
+                                  {analysisStepIndex === 3 && "✨ 结合大模型进行全域风格提炼并提词..."}
+                                </h4>
+                              </div>
+                            </div>
+
+                            {/* Checklist steps */}
+                            <div className="space-y-2.5 max-w-sm mx-auto w-full px-2">
+                              {[
+                                "初始化AI视觉和空间关系解析模型",
+                                "判定并标记地平线、墙角以及透视比例参数",
+                                "检测全屋自然光源、环境漫射光及色温明暗",
+                                "融合家装风格大语言知识，输出分析标签与说明"
+                              ].map((step, idx) => {
+                                const isDone = analysisStepIndex > idx;
+                                const isActive = analysisStepIndex === idx;
+                                return (
+                                  <div 
+                                    key={idx} 
+                                    className={`flex items-center gap-3 p-2 rounded-xl transition-all duration-300 text-[11px] ${
+                                      isDone ? "bg-emerald-50/50 text-emerald-800" : 
+                                      isActive ? "bg-indigo-50/70 text-indigo-900 border border-indigo-100 shadow-sm shadow-indigo-100/35" : 
+                                      "text-slate-400 opacity-60"
+                                    }`}
+                                  >
+                                    <div className="shrink-0">
+                                      {isDone ? (
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                      ) : isActive ? (
+                                        <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+                                      ) : (
+                                        <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center text-[8px] font-bold">
+                                          {idx + 1}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span className="font-semibold truncate">{step}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         ) : (
                           <motion.div 
@@ -766,8 +835,67 @@ export default function App() {
                         )}
                         
                         {isAnalyzing ? (
-                          <div className="space-y-2">
-                            <div className="h-6 bg-slate-100 rounded-lg animate-pulse" />
+                          <div className="flex flex-col h-full justify-center py-4 space-y-6">
+                            {/* Animated Visual Loader */}
+                            <div className="flex flex-col items-center justify-center text-center gap-3">
+                              <div className="relative w-16 h-16 flex items-center justify-center">
+                                {/* Ripple effect */}
+                                <div className="absolute inset-0 rounded-full border border-indigo-100 animate-[ping_1.5s_infinite]" />
+                                <div className="absolute inset-2 rounded-full border border-indigo-200 animate-[ping_2s_infinite] delay-300" />
+                                
+                                {/* Inner spinning glowing indicator */}
+                                <div className="absolute inset-0 rounded-full border-2 border-slate-100 border-t-indigo-600 animate-spin" />
+                                <Sparkles className="w-6 h-6 text-indigo-600 animate-pulse" />
+                              </div>
+                              
+                              <div className="space-y-1">
+                                <span className="inline-flex px-2 py-0.5 rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-600 animate-pulse">
+                                  解析阶段 {analysisStepIndex + 1}/4
+                                </span>
+                                <h4 className="text-xs font-bold text-slate-800 transition-all duration-300 max-w-xs leading-relaxed px-4">
+                                  {analysisStepIndex === 0 && "🔍 正在读取地毯纤维与材质细节..."}
+                                  {analysisStepIndex === 1 && "🎨 匹配微观纹理与图案对比度..."}
+                                  {analysisStepIndex === 2 && "🧶 分析边缘收口与绒头工艺..."}
+                                  {analysisStepIndex === 3 && "✨ 生成地毯材质与颜色提词报告..."}
+                                </h4>
+                              </div>
+                            </div>
+
+                            {/* Checklist steps */}
+                            <div className="space-y-2.5 max-w-sm mx-auto w-full px-2">
+                              {[
+                                "初始化地毯纹理深度提取核",
+                                "色系区间、主色占比与细节密度计算",
+                                "材质流苏、梭织工艺及绒高三维特征感应",
+                                "根据光照折射生成法线漫反射提示模型"
+                              ].map((step, idx) => {
+                                const isDone = analysisStepIndex > idx;
+                                const isActive = analysisStepIndex === idx;
+                                return (
+                                  <div 
+                                    key={idx} 
+                                    className={`flex items-center gap-3 p-2 rounded-xl transition-all duration-300 text-[11px] ${
+                                      isDone ? "bg-emerald-50/50 text-emerald-800" : 
+                                      isActive ? "bg-indigo-50/70 text-indigo-900 border border-indigo-100 shadow-sm shadow-indigo-100/35" : 
+                                      "text-slate-400 opacity-60"
+                                    }`}
+                                  >
+                                    <div className="shrink-0">
+                                      {isDone ? (
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                      ) : isActive ? (
+                                        <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+                                      ) : (
+                                        <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center text-[8px] font-bold">
+                                          {idx + 1}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span className="font-semibold truncate">{step}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         ) : (
                           <motion.div 
