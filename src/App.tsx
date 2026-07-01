@@ -31,7 +31,8 @@ import {
   generateCarpetModelFrontal,
   validateIsRoom,
   validateIsCarpet,
-  GenerationParams
+  GenerationParams,
+  parseParamsFromText
 } from "./services/geminiService";
 import { 
   launchTool, 
@@ -114,7 +115,7 @@ export default function App() {
   const [analysisStepIndex, setAnalysisStepIndex] = useState(0);
   const [appMode, setAppMode] = useState<AppMode>("select");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [agentInputMode, setAgentInputMode] = useState<"none" | "custom-style-name">("none");
+  const [agentInputMode, setAgentInputMode] = useState<"none" | "custom-style-name" | "render-params-or-start">("none");
   const [agentTextValue, setAgentTextValue] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const agentRoomInputRef = useRef<HTMLInputElement>(null);
@@ -317,6 +318,131 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  const triggerRenderWorkflow = async (targetParams: GenerationParams) => {
+    const progressMsgId = `msg-generating-${Date.now()}`;
+    const generatingMsg: ChatMessage = {
+      id: progressMsgId,
+      sender: "assistant",
+      type: "generating"
+    };
+    setChatMessages(prev => [...prev, generatingMsg]);
+    
+    try {
+      // Verify integral
+      if (userId && toolId) {
+        const verify = await verifyIntegral(userId, toolId);
+        if (!verify.success) {
+          setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+            id: `msg-error-${Date.now()}`,
+            sender: "assistant",
+            text: `❌ 积分不足：${verify.message || "无法开启 AI 极速渲染。"}`
+          }));
+          return;
+        }
+      }
+
+      const prompt = await generateResultPrompt(
+        roomAnalysis || "", 
+        carpetAnalysis || "", 
+        !usePredefinedStyle,
+        saasContext,
+        saasPrompt
+      );
+      const roomBase64 = roomImage ? roomImage.split(",")[1] : null;
+      const carpetBase64 = carpetImage ? carpetImage.split(",")[1] : null;
+      if (!carpetBase64) throw new Error("Carpet image is missing");
+
+      let finalResultImg = "";
+      let finalDetailImg = "";
+      let finalModelImg = "";
+      let finalModelFrontImg = "";
+
+      const panoPromise = generateCarpetFitting(roomBase64, carpetBase64, prompt, targetParams).then(img => {
+        finalResultImg = img;
+        setResultImage(img);
+        return img;
+      });
+      const detailPromise = generateCarpetDetail(carpetBase64, carpetAnalysis || "", targetParams).then(img => {
+        finalDetailImg = img;
+        setDetailImage(img);
+        return img;
+      });
+      
+      const allPromises: Promise<string>[] = [panoPromise, detailPromise];
+
+      if (targetParams.hasModel) {
+        const modelTopPromise = generateCarpetModelInteraction(roomBase64, carpetBase64, prompt, targetParams).then(img => {
+          finalModelImg = img;
+          setModelImage(img);
+          return img;
+        });
+        const modelFrontPromise = generateCarpetModelFrontal(roomBase64, carpetBase64, prompt, targetParams).then(img => {
+          finalModelFrontImg = img;
+          setModelFrontImage(img);
+          return img;
+        });
+        allPromises.push(modelTopPromise, modelFrontPromise);
+      }
+
+      const generatedImages = await Promise.all(allPromises);
+
+      // Consume integral
+      if (userId && toolId) {
+        try {
+          const requestId = createRequestId();
+          const res = await consumeIntegral(userId, toolId, requestId);
+          if (res.success && res.data) {
+            setIntegral(res.data.currentIntegral);
+            if (generatedImages.length > 0) {
+              await uploadResultImage(userId, toolId, generatedImages, requestId);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to consume integral in Agent mode:", error);
+        }
+      }
+
+      // Show Success Results in Chat Bubble
+      setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+        id: `msg-result-${Date.now()}`,
+        sender: "assistant",
+        type: "result",
+        text: "✨ 地毯铺装渲染效果已圆满生成！您可以直接查看、切换预览图，或点击下载高清效果图：",
+        data: {
+          resultImage: finalResultImg,
+          detailImage: finalDetailImg,
+          modelImage: finalModelImg,
+          modelFrontImage: finalModelFrontImg
+        }
+      }, {
+        id: `msg-followup-${Date.now()}`,
+        sender: "assistant",
+        text: "您想继续尝试其他搭配或开启全新设计吗？",
+        type: "options",
+        options: [
+          { id: "opt-restart-agent", label: "🔄 重新开始设计" }
+        ]
+      }));
+
+    } catch (error: any) {
+      console.error("Agent generation failed:", error);
+      const errorContent = JSON.stringify(error).toLowerCase();
+      let customError = "❌ 铺装渲染过程中出现了未知错误。建议您点击下方按钮重新尝试生成：";
+      if (errorContent.includes("high demand") || errorContent.includes("503") || errorContent.includes("unavailable")) {
+        customError = "❌ 渲染引擎繁忙：目前 AI 算力请求过多，已自动尝试恢复。请您稍等几秒后，重新点击开始渲染！";
+      }
+      setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+        id: `msg-error-${Date.now()}`,
+        sender: "assistant",
+        text: customError,
+        type: "options",
+        options: [
+          { id: "opt-start-render", label: "🔄 重新生成试铺" }
+        ]
+      }));
+    }
+  };
+
   const handleAgentOption = async (optionId: string, optionLabel: string) => {
     // Add user's selection to chat
     const newUserMsg: ChatMessage = {
@@ -379,127 +505,7 @@ export default function App() {
           setChatMessages(prev => [...prev, assistantReply]);
         }
       } else if (optionId === "opt-start-render") {
-        // Start AI Rendering
-        const progressMsgId = `msg-generating-${Date.now()}`;
-        const generatingMsg: ChatMessage = {
-          id: progressMsgId,
-          sender: "assistant",
-          type: "generating"
-        };
-        setChatMessages(prev => [...prev, generatingMsg]);
-        
-        try {
-          // Verify integral
-          if (userId && toolId) {
-            const verify = await verifyIntegral(userId, toolId);
-            if (!verify.success) {
-              setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
-                id: `msg-error-${Date.now()}`,
-                sender: "assistant",
-                text: `❌ 积分不足：${verify.message || "无法开启 AI 极速渲染。"}`
-              }));
-              return;
-            }
-          }
-
-          const prompt = await generateResultPrompt(
-            roomAnalysis || "", 
-            carpetAnalysis || "", 
-            !usePredefinedStyle,
-            saasContext,
-            saasPrompt
-          );
-          const roomBase64 = roomImage ? roomImage.split(",")[1] : null;
-          const carpetBase64 = carpetImage ? carpetImage.split(",")[1] : null;
-          if (!carpetBase64) throw new Error("Carpet image is missing");
-
-          let finalResultImg = "";
-          let finalDetailImg = "";
-          let finalModelImg = "";
-          let finalModelFrontImg = "";
-
-          const panoPromise = generateCarpetFitting(roomBase64, carpetBase64, prompt, params).then(img => {
-            finalResultImg = img;
-            setResultImage(img);
-            return img;
-          });
-          const detailPromise = generateCarpetDetail(carpetBase64, carpetAnalysis || "", params).then(img => {
-            finalDetailImg = img;
-            setDetailImage(img);
-            return img;
-          });
-          
-          const allPromises: Promise<string>[] = [panoPromise, detailPromise];
-
-          if (params.hasModel) {
-            const modelTopPromise = generateCarpetModelInteraction(roomBase64, carpetBase64, prompt, params).then(img => {
-              finalModelImg = img;
-              setModelImage(img);
-              return img;
-            });
-            const modelFrontPromise = generateCarpetModelFrontal(roomBase64, carpetBase64, prompt, params).then(img => {
-              finalModelFrontImg = img;
-              setModelFrontImage(img);
-              return img;
-            });
-            allPromises.push(modelTopPromise, modelFrontPromise);
-          }
-
-          const generatedImages = await Promise.all(allPromises);
-
-          // Consume integral
-          if (userId && toolId) {
-            try {
-              const requestId = createRequestId();
-              const res = await consumeIntegral(userId, toolId, requestId);
-              if (res.success && res.data) {
-                setIntegral(res.data.currentIntegral);
-                if (generatedImages.length > 0) {
-                  await uploadResultImage(userId, toolId, generatedImages, requestId);
-                }
-              }
-            } catch (error) {
-              console.error("Failed to consume integral in Agent mode:", error);
-            }
-          }
-
-          // Show Success Results in Chat Bubble
-          setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
-            id: `msg-result-${Date.now()}`,
-            sender: "assistant",
-            type: "result",
-            text: "✨ 地毯铺装渲染效果已圆满生成！您可以直接查看、切换预览图，或点击下载高清效果图：",
-            data: {
-              resultImage: finalResultImg,
-              detailImage: finalDetailImg,
-              modelImage: finalModelImg,
-              modelFrontImage: finalModelFrontImg
-            }
-          }, {
-            id: `msg-followup-${Date.now()}`,
-            sender: "assistant",
-            text: "您想继续尝试其他搭配或开启全新设计吗？",
-            type: "options",
-            options: [
-              { id: "opt-restart-agent", label: "🔄 重新开始设计" }
-            ]
-          }));
-
-        } catch (error: any) {
-          console.error("Agent generation failed:", error);
-          setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
-            id: `msg-error-${Date.now()}`,
-            sender: "assistant",
-            text: "❌ 铺装渲染过程中出现了未知错误。建议您点击下方按钮重新尝试生成："
-          }, {
-            id: `msg-retry-${Date.now()}`,
-            sender: "assistant",
-            type: "options",
-            options: [
-              { id: "opt-start-render", label: "🔄 重新生成试铺" }
-            ]
-          }));
-        }
+        await triggerRenderWorkflow(params);
       } else if (optionId === "opt-restart-agent") {
         initAgentChat();
       }
@@ -651,12 +657,13 @@ export default function App() {
           }, {
             id: `msg-success-${Date.now()}`,
             sender: "assistant",
-            text: `参数配置完成后，点击下方按钮开启 AI 极速渲染：`,
+            text: `参数配置完成后，您也可以直接在对话框中告诉我您的需求（如「我要16:9比例，加个年轻女模特，帮我渲染」），或者直接点击下方按钮开启 AI 极速渲染：`,
             type: "options",
             options: [
               { id: "opt-start-render", label: "🚀 开启智能极速渲染" }
             ]
           }));
+          setAgentInputMode("render-params-or-start");
         }
 
       } catch (error: any) {
@@ -705,6 +712,41 @@ export default function App() {
         };
         setChatMessages(prev => [...prev, assistantReply]);
       }, 400);
+    } else if (agentInputMode === "render-params-or-start") {
+      const thinkingMsgId = `msg-thinking-${Date.now()}`;
+      setChatMessages(prev => [...prev, {
+        id: thinkingMsgId,
+        sender: "assistant",
+        text: "🔍 正在为您解析指令，调整参数选项...",
+      }]);
+
+      try {
+        const { updatedParams, shouldStart, feedback } = await parseParamsFromText(userInput, params);
+        
+        setParams(updatedParams);
+
+        setChatMessages(prev => prev.filter(m => m.id !== thinkingMsgId).concat({
+          id: `msg-asst-feedback-${Date.now()}`,
+          sender: "assistant",
+          text: feedback
+        }));
+
+        if (shouldStart) {
+          setTimeout(async () => {
+            await triggerRenderWorkflow(updatedParams);
+          }, 1200);
+        } else {
+          setAgentInputMode("render-params-or-start");
+        }
+      } catch (err) {
+        console.error("Conversational params parse failed:", err);
+        setChatMessages(prev => prev.filter(m => m.id !== thinkingMsgId).concat({
+          id: `msg-asst-error-${Date.now()}`,
+          sender: "assistant",
+          text: "⚠️ 解析您的指令时有些超时或网络波动，但您仍然可以通过上方控制面板直接点击或选择参数。调整好后可点击开启智能极速渲染！"
+        }));
+        setAgentInputMode("render-params-or-start");
+      }
     }
   };
 

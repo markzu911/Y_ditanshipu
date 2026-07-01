@@ -559,3 +559,86 @@ export async function generateCarpetModelInteraction(
   });
 }
 
+/**
+ * Parses user parameters from natural language chat input
+ */
+export async function parseParamsFromText(
+  text: string,
+  currentParams: GenerationParams
+): Promise<{
+  updatedParams: GenerationParams;
+  shouldStart: boolean;
+  feedback: string;
+}> {
+  return withRetry(async () => {
+    const promptText = `你是一个智能地毯铺装渲染助手。现在用户通过对话输入了一段关于渲染参数（如比例、清晰度、摄影滤镜、是否需要模特、模特性别、年龄、人种等）或开启渲染的指令。
+当前渲染参数如下：
+${JSON.stringify(currentParams)}
+
+可选参数选项及映射关系：
+1. aspectRatio (比例): "1:1", "4:3", "3:4", "9:16", "16:9" (例如"宽屏","电视比例"映射到"16:9"，"竖屏","手机屏"映射到"9:16")
+2. imageSize (清晰度): "1K", "2K", "4K" ("高清","一般"->"1K", "超清"->"2K", "极清","超高质量"->"4K")
+3. filter (摄影滤镜): "natural" (自然), "cinematic" (电影), "warm" (午后/温馨), "modern" (现代/时尚), "film" (胶片/复古), "none" (无/默认)
+4. hasModel (是否需要人/模特): true/false (如果用户说"不需要人"、"不要模特"、"去掉人"、"只要场景"则设为 false；如果用户提到了添加模特、或者是描述了模特特征，比如"加个女人"、"要小孩"、"找个亚裔"等，则必须设为 true)
+5. modelGender (模特性别): "female" (女性), "male" (男性)
+6. modelAge (模特年龄段): "child" (儿童), "youth" (青年), "elder" (老年/长者)
+7. modelEthnicity (模特人种): "asian" (亚裔/中国人), "european" (欧美/白人), "african" (非裔/黑人), "indian" (印裔), "latin" (拉美裔)
+
+指令解析规则：
+- 解析用户的自然语言，将提到的任何参数修改并更新到 updatedParams 中。未提及的参数保持 currentParams 的原值不变。
+- 额外判断 shouldStart (是否开始渲染): 如果用户表达了"开始"、"生成"、"渲染"、"铺装"、"确定"、"冲"、"可以了"、"ok" 等，或者提供了参数并顺便要求开始（例如："帮我用16:9比例，加个外国模特，开始渲染吧"），请将 shouldStart 设为 true。
+- 编写一段 feedback (中文回复)：简洁、礼貌、专业地告知用户你听懂了什么，进行了哪些参数的调整（如："已为您将比例调整为16:9，并添加了欧美年轻女模特。现在为您开启极速渲染..." 或是 "好的，已经帮您设置了2K清晰度与午后滤镜，您可以点击下方按钮开始试铺，或者继续告诉我您的其他要求！"）。
+
+请严格返回以下 JSON 格式：
+{
+  "updatedParams": {
+    "model": "string",
+    "aspectRatio": "1:1" | "4:3" | "3:4" | "9:16" | "16:9",
+    "imageSize": "1K" | "2K" | "4K",
+    "filter": "natural" | "cinematic" | "warm" | "modern" | "film" | "none",
+    "hasModel": boolean,
+    "modelGender": "female" | "male",
+    "modelAge": "child" | "youth" | "elder",
+    "modelEthnicity": "asian" | "european" | "african" | "indian" | "latin"
+  },
+  "shouldStart": boolean,
+  "feedback": "string (不超过80个字的中文优雅回复)"
+}
+
+用户输入：
+"${text}"`;
+
+    const response = await callGeminiApi("gemini-3.5-flash", {
+      parts: [
+        {
+          text: promptText,
+        },
+      ],
+    });
+
+    const respText = response.text || "{}";
+    try {
+      const jsonStr = respText.match(/\{.*\}/s)?.[0] || "{}";
+      const result = JSON.parse(jsonStr);
+      
+      const mergedParams = {
+        ...currentParams,
+        ...(result.updatedParams || {})
+      };
+      
+      return {
+        updatedParams: mergedParams,
+        shouldStart: !!result.shouldStart,
+        feedback: result.feedback || "好的，已为您同步调整了铺装参数。"
+      };
+    } catch (e) {
+      console.error("Failed to parse params json:", e);
+      return {
+        updatedParams: currentParams,
+        shouldStart: text.includes("开始") || text.includes("渲染") || text.includes("生成"),
+        feedback: "好的，已帮您记录您的要求，这就为您进行更新设置。"
+      };
+    }
+  });
+}
+
