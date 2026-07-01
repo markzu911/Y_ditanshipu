@@ -222,6 +222,7 @@ export interface GenerationParams {
   hasModel?: boolean;
   modelGender?: "female" | "male";
   modelAge?: "child" | "youth" | "elder";
+  modelEthnicity?: "asian" | "european" | "african" | "indian" | "latin";
 }
 
 /**
@@ -342,11 +343,17 @@ export async function generateCarpetModelFrontal(
     else if (params.modelAge === "elder") ageText = "senior (approx 60-70 years old)";
     else ageText = "young adult";
 
+    let ethnicityText = "Asian";
+    if (params.modelEthnicity === "european") ethnicityText = "European/Western";
+    else if (params.modelEthnicity === "african") ethnicityText = "African";
+    else if (params.modelEthnicity === "indian") ethnicityText = "Indian";
+    else if (params.modelEthnicity === "latin") ethnicityText = "Latin American";
+
     const fullPrompt = `Task: Generate a HIGH-END FRONTAL LIFESTYLE PHOTOGRAPHY shot.
       
       SCENE & MODEL SPECIFICATION:
       - Perspective: EYE-LEVEL FRONTAL VIEW (Sitting on the floor/carpet).
-      - Model Action: A ${ageText} ${genderText} model (Asian) is sitting elegantly and comfortably directly ON the carpet. 
+      - Model Action: A ${ageText} ${genderText} model (${ethnicityText}) is sitting elegantly and comfortably directly ON the carpet. 
       - Pose: The model could be leaning against a sofa or sitting cross-legged, looking relaxed. The expression is warm and inviting.
       - Outfit: Elegant, high-quality ivory or soft beige loungewear.
       
@@ -484,11 +491,17 @@ export async function generateCarpetModelInteraction(
     else if (params.modelAge === "elder") ageText = "senior (approx 60-70 years old)";
     else ageText = "young adult";
 
+    let ethnicityText = "Asian";
+    if (params.modelEthnicity === "european") ethnicityText = "European/Western";
+    else if (params.modelEthnicity === "african") ethnicityText = "African";
+    else if (params.modelEthnicity === "indian") ethnicityText = "Indian";
+    else if (params.modelEthnicity === "latin") ethnicityText = "Latin American";
+
     const fullPrompt = `Task: Generate a HIGH-END TOP-DOWN (OVERHEAD) LIFESTYLE PHOTOGRAPHY shot of the carpet.
       
       SCENE & MODEL SPECIFICATION:
       - Perspective: STRICT TOP-DOWN / FLAT LAY VIEW (Bird's eye view looking straight down at the floor).
-      - Model Action: A ${ageText} ${genderText} model (Asian) is sitting or lying gracefully on the carpet. The model is engaged with a high-quality open interior design book or magazine.
+      - Model Action: A ${ageText} ${genderText} model (${ethnicityText}) is sitting or lying gracefully on the carpet. The model is engaged with a high-quality open interior design book or magazine.
       - Pose: Part of the model's limbs and hair are visible from the overhead angle.
       - Outfit: Elegant, clean ivory or soft beige loungewear.
       - ROOM CONTEXT: The carpet MUST NOT be in a void. Include surrounding furniture elements visible from above, such as the corner of a sofa, part of a coffee table, or a side table to anchor the carpet in a real room.

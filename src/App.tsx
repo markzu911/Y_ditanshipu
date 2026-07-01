@@ -18,7 +18,8 @@ import {
   MessageSquare,
   Cpu,
   Layers,
-  Send
+  Send,
+  SlidersHorizontal
 } from "lucide-react";
 import { 
   analyzeRoom, 
@@ -48,7 +49,7 @@ interface ChatMessage {
   id: string;
   sender: "assistant" | "user";
   text?: string;
-  type?: "text" | "options" | "upload_room" | "upload_carpet" | "room_analysis" | "carpet_analysis" | "generating" | "result";
+  type?: "text" | "options" | "upload_room" | "upload_carpet" | "room_analysis" | "carpet_analysis" | "generating" | "result" | "param_config";
   options?: { id: string; label: string }[];
   data?: any;
 }
@@ -186,7 +187,8 @@ export default function App() {
     model: "gemini-3.1-flash-image",
     filter: "none",
     modelGender: "female",
-    modelAge: "youth"
+    modelAge: "youth",
+    modelEthnicity: "asian"
   });
 
   const [userId, setUserId] = useState<string>("");
@@ -594,9 +596,9 @@ export default function App() {
           setUploadedRoomAnalysis(analysis);
 
           setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
-            id: `msg-success-${Date.now()}`,
+            id: `msg-success-room-${Date.now()}`,
             sender: "assistant",
-            text: `🎯 三维空间定位与光影解析完成！\n\n接下来，请上传您的地毯图（原图或样本），我会帮您提取材质特性与纹理：`,
+            text: `🎯 三维空间定位与光影解析完成！\n\n**🔍 空间分析报告：**\n${analysis}\n\n接下来，请上传您的地毯图（原图或样本），我会帮您提取材质特性与纹理：`,
             type: "upload_carpet"
           }));
 
@@ -638,9 +640,18 @@ export default function App() {
           setCarpetAnalysis(analysis);
 
           setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+            id: `msg-success-carpet-analysis-${Date.now()}`,
+            sender: "assistant",
+            text: `🎯 地毯纹理及微观绒头分析成功！\n\n**🔍 地毯材质特征报告：**\n${analysis}`,
+          }, {
+            id: `msg-param-config-${Date.now()}`,
+            sender: "assistant",
+            text: `在开始试铺前，您可以根据需要，在下方调整地毯铺装的渲染参数（比例、清晰度、是否需要模特等）：`,
+            type: "param_config"
+          }, {
             id: `msg-success-${Date.now()}`,
             sender: "assistant",
-            text: `🎯 地毯纹理及微观绒头分析成功！\n\n万事俱备，我们可以开启 AI 极速搭配试铺了。请点击下方按钮开启渲染：`,
+            text: `参数配置完成后，点击下方按钮开启 AI 极速渲染：`,
             type: "options",
             options: [
               { id: "opt-start-render", label: "🚀 开启智能极速渲染" }
@@ -1197,6 +1208,175 @@ export default function App() {
                                   </div>
                                 );
                               })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Interactive parameters configuration block inside Chat Bubble */}
+                        {msg.type === "param_config" && (
+                          <div className="bg-white p-4 rounded-xl border border-indigo-100 shadow-md w-full max-w-sm space-y-4">
+                            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                              <SlidersHorizontal className="w-4 h-4 text-indigo-600" />
+                              <span className="text-xs font-bold text-slate-700">铺装渲染参数设置</span>
+                            </div>
+
+                            {/* Aspect Ratio */}
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">比例 (Ratio)</label>
+                              <div className="grid grid-cols-5 gap-1">
+                                {(["1:1", "4:3", "3:4", "9:16", "16:9"] as const).map((ratio) => (
+                                  <button
+                                    key={ratio}
+                                    onClick={() => setParams(p => ({ ...p, aspectRatio: ratio }))}
+                                    className={`py-1 border rounded-lg text-[10px] font-bold transition-all ${
+                                      params.aspectRatio === ratio 
+                                        ? "bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm" 
+                                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    {ratio}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Image Size / Resolution */}
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">清晰度 (Resolution)</label>
+                              <div className="grid grid-cols-3 gap-1.5">
+                                {(["1K", "2K", "4K"] as const).map((size) => (
+                                  <button
+                                    key={size}
+                                    onClick={() => setParams(p => ({ ...p, imageSize: size }))}
+                                    className={`py-1 border rounded-lg text-[10px] font-bold transition-all ${
+                                      params.imageSize === size 
+                                        ? "bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm" 
+                                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    {size}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Photography Filter */}
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">摄影滤镜 (Filter)</label>
+                              <div className="grid grid-cols-3 gap-1">
+                                {[
+                                  { id: "natural", name: "自然" },
+                                  { id: "cinematic", name: "电影" },
+                                  { id: "warm", name: "午后" },
+                                  { id: "modern", name: "现代" },
+                                  { id: "film", name: "胶片" },
+                                  { id: "none", name: "默认" }
+                                ].map((filter) => (
+                                  <button
+                                    key={filter.id}
+                                    onClick={() => setParams(p => ({ ...p, filter: filter.id as any }))}
+                                    className={`py-1 border rounded-lg text-[10px] font-bold transition-all ${
+                                      (params.filter === filter.id || (!params.filter && filter.id === 'none'))
+                                        ? "bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm" 
+                                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    {filter.name}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Model Option */}
+                            <div className="space-y-2 pt-1">
+                              <button
+                                onClick={() => setParams(p => ({ ...p, hasModel: !p.hasModel }))}
+                                className={`w-full py-1.5 border rounded-lg flex items-center justify-between px-3 transition-all ${
+                                  params.hasModel
+                                    ? "bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm" 
+                                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <CheckCircle2 className={`w-3.5 h-3.5 ${params.hasModel ? "text-indigo-600" : "text-slate-300"}`} />
+                                  <span className="text-[10px] font-bold">加入人物模特 (Include Model)</span>
+                                </div>
+                                <span className="text-[9px] font-medium opacity-60">Lifestyle</span>
+                              </button>
+
+                              {params.hasModel && (
+                                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2.5">
+                                  <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-0.5 block">模特性别 (Gender)</label>
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                      {([
+                                        { id: "female", name: "女性" },
+                                        { id: "male", name: "男性" }
+                                      ] as const).map((g) => (
+                                        <button
+                                          key={g.id}
+                                          onClick={() => setParams(p => ({ ...p, modelGender: g.id }))}
+                                          className={`py-1 rounded-md text-[10px] font-bold border transition-all ${
+                                            params.modelGender === g.id 
+                                              ? "bg-white border-indigo-600 text-indigo-600 shadow-sm" 
+                                              : "bg-transparent border-slate-200 text-slate-500 hover:bg-white"
+                                          }`}
+                                        >
+                                          {g.name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-0.5 block">模特年龄 (Age Group)</label>
+                                    <div className="grid grid-cols-3 gap-1">
+                                      {([
+                                        { id: "child", name: "儿童" },
+                                        { id: "youth", name: "青年" },
+                                        { id: "elder", name: "老年" }
+                                      ] as const).map((a) => (
+                                        <button
+                                          key={a.id}
+                                          onClick={() => setParams(p => ({ ...p, modelAge: a.id }))}
+                                          className={`py-1 rounded-md text-[10px] font-bold border transition-all ${
+                                            params.modelAge === a.id 
+                                              ? "bg-white border-indigo-600 text-indigo-600 shadow-sm" 
+                                              : "bg-transparent border-slate-200 text-slate-500 hover:bg-white"
+                                          }`}
+                                        >
+                                          {a.name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-0.5 block">模特人种 (Ethnicity)</label>
+                                    <div className="grid grid-cols-5 gap-1">
+                                      {([
+                                        { id: "asian", name: "亚裔" },
+                                        { id: "european", name: "欧美" },
+                                        { id: "african", name: "非裔" },
+                                        { id: "indian", name: "印裔" },
+                                        { id: "latin", name: "拉美" }
+                                      ] as const).map((e) => (
+                                        <button
+                                          key={e.id}
+                                          onClick={() => setParams(p => ({ ...p, modelEthnicity: e.id }))}
+                                          className={`py-1 rounded-md text-[9px] font-bold border transition-all ${
+                                            params.modelEthnicity === e.id 
+                                              ? "bg-white border-indigo-600 text-indigo-600 shadow-sm" 
+                                              : "bg-transparent border-slate-200 text-slate-500 hover:bg-white"
+                                          }`}
+                                        >
+                                          {e.name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
@@ -2034,6 +2214,31 @@ export default function App() {
                                   }`}
                                 >
                                   {a.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1">模特人种 (Ethnicity)</label>
+                            <div className="grid grid-cols-5 gap-1.5">
+                              {([
+                                { id: "asian", name: "亚裔" },
+                                { id: "european", name: "欧美" },
+                                { id: "african", name: "非裔" },
+                                { id: "indian", name: "印裔" },
+                                { id: "latin", name: "拉美" }
+                              ] as const).map((e) => (
+                                <button
+                                  key={e.id}
+                                  onClick={() => setParams(p => ({ ...p, modelEthnicity: e.id }))}
+                                  className={`py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                    params.modelEthnicity === e.id 
+                                      ? "bg-white border-indigo-600 text-indigo-600 shadow-sm" 
+                                      : "bg-transparent border-slate-200 text-slate-500 hover:bg-white"
+                                  }`}
+                                >
+                                  {e.name}
                                 </button>
                               ))}
                             </div>
