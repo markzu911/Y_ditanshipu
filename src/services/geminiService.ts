@@ -173,13 +173,14 @@ export async function generateResultPrompt(
   saasPrompt?: string[]
 ): Promise<string> {
   return withRetry(async () => {
-    // Check style keys to provide extremely specific high-end architectural descriptions
-    const isCreamStyle = roomAnalysis.includes("奶油风") || roomAnalysis.includes("Creamy") || roomAnalysis.includes("Cream Style");
-    const isModernStyle = roomAnalysis.includes("现代简约") || roomAnalysis.includes("Modern");
-    const isNordicStyle = roomAnalysis.includes("北欧") || roomAnalysis.includes("Nordic");
-    const isNewChineseStyle = roomAnalysis.includes("新中式") || roomAnalysis.includes("Chinese");
-    const isWabiSabiStyle = roomAnalysis.includes("侘寂") || roomAnalysis.includes("Wabi");
-    const isLightLuxuryStyle = roomAnalysis.includes("轻奢") || roomAnalysis.includes("Luxury");
+    const isPredefined = !roomAnalysis.startsWith("自定义风格：");
+
+    const isCreamStyle = isPredefined && (roomAnalysis.includes("奶油风") || roomAnalysis.includes("Creamy") || roomAnalysis.includes("Cream Style"));
+    const isModernStyle = isPredefined && (roomAnalysis.includes("现代简约") || roomAnalysis.includes("Modern"));
+    const isNordicStyle = isPredefined && (roomAnalysis.includes("北欧") || roomAnalysis.includes("Nordic"));
+    const isNewChineseStyle = isPredefined && (roomAnalysis.includes("新中式") || roomAnalysis.includes("Chinese"));
+    const isWabiSabiStyle = isPredefined && (roomAnalysis.includes("侘寂") || roomAnalysis.includes("Wabi"));
+    const isLightLuxuryStyle = isPredefined && (roomAnalysis.includes("轻奢") || roomAnalysis.includes("Luxury"));
     
     let specificStyleContext = "";
     if (isCreamStyle) {
@@ -235,7 +236,7 @@ export async function generateResultPrompt(
       specificStyleContext = `
       IMPORTANT CUSTOM/CONVERSATIONAL STYLE DIRECTION:
       The design style specified is: "${roomAnalysis}".
-      Please carefully interpret the core elements of this style (typical furniture, materials, colors, lighting, and layout) and generate a highly characteristic, high-end professional indoor scene that strictly matches this style. Do not make up a generic room; make it look exactly like a masterpiece of the requested style.
+      You MUST strictly generate the scene in accordance with this style description. Evaluate and interpret the core aesthetic elements of "${roomAnalysis}" including typical furniture items, materials (e.g. warm solid oak, raw concrete, industrial steel, brass trim, or boucle linen fabrics), color palettes (e.g. earthy warm tones, cool monochromatic grays, bright pastel colors, or deep vibrant hues), lighting designs, and room layouts. Avoid generating a generic default room. It must look exactly like an architectural masterpiece of the requested custom style.
       `;
     }
 
@@ -257,7 +258,8 @@ ${specificStyleContext}
 2. 地毯比例（CRITICAL）：地毯必须占据地板上合理且显眼的比例，通常应延伸至沙发下方并位于茶几中心，比例需与家具大小完美协调，避免出现过小或比例失调的情况。
 3. 地毯一致性：图案、颜色和纹理必须与地毯分析描述 100% 吻合。它是画面中的绝对核心。
 4. 采用专业室内摄影风格（High-end Architectural Photography），光影自然。
-5. 只返回生成的英文提示词，不要有其他描述。`
+5. 英文提示词结构要求：必须在开头明确强调指定的室内设计风格（如 "A hyper-realistic [特定风格] style living room..."），将风格词汇放在提示词的最前面以增强 AI 的注意力。
+6. 只返回生成的英文提示词，不要有其他描述。`
         }
       ]
     });
@@ -329,7 +331,7 @@ export async function generateCarpetFitting(
       2. PERSPECTIVE INTEGRATION: The carpet MUST be laid perfectly flat on the floor following the room's 3D perspective. If rectangular, it should appear as a sharp, clean geometric trapezoid in the scene, NOT an irregular blob.
       3. ZERO HALLUCINATION: NO alterations to pattern, weave, motifs, or colors. ABSOLUTELY NO adding of fringes, tassels, or edge details that do not exist in the original Image 2.
       ${roomBase64 ? 
-        "4. STYLE INSPIRATION: Analyze the decoration style, color palette, and furniture aesthetic in Image 1. Generate a COMPLETELY NEW, high-end interior scene that matches this EXACT STYLE. Do not modify Image 1 directly." : 
+        "4. STYLE INSPIRATION: Recreate the basic layout, perspective, and general structure of Image 1, but you MUST strictly apply the exact design style, materials, furniture models, and color scheme described in the Detailed Prompt. Completely override the original design style of Image 1 with the specified room style." : 
         "4. SCENE CREATION: CREATE a high-end interior scene matching the exact style described."
       }
       5. INTEGRATION: Place the carpet from Image 2 into this generated scene.
@@ -414,7 +416,7 @@ export async function generateCarpetModelFrontal(
       3. ZERO HALLUCINATION: ABSOLUTELY NO adding of fringes, tassels, or any edge treatments or patterns that are not present in Image 2. It must be a perfect restoration of the source asset.
       4. PERSPECTIVE: The carpet must be perfectly flat on the floor with sharp, straight geometric edges that follow the floor's perspective alignment.
       ${roomBase64 ? 
-        "5. STYLE REPLICATION: Replicate the EXACT interior design style, materials, and lighting mood from Image 1. Generate a NEW scene that feels like the same designer created it." : 
+        "5. STYLE REPLICATION: Recreate the general layout and room context of Image 1, but you MUST strictly apply the exact design style, materials, furniture models, and color scheme described in the Detailed Prompt. Completely override the original style of Image 1 with the specified room style." : 
         "5. SCENE CREATION: CREATE a high-end interior scene matching the described style."
       }
       
@@ -563,8 +565,8 @@ export async function generateCarpetModelInteraction(
       3. ZERO Hallucination: DO NOT add fringes, tassels, or any edge details that are not in Image 2. The edges must be an exact match to the source asset.
       4. REALISTIC INTEGRATION: The rectangular carpet must be perfectly flat on the floor with clean, STRAIGHT edges. No irregular or organic warping of the rug boundary is allowed.
       ${roomBase64 ? 
-        "5. STYLE HARMONY: Replicate the EXACT design style, wood tones, and fabric textures seen in Image 1. The furniture (sofa edges, tables) must match the aesthetic of the uploaded room." : 
-        "5. FURNITURE CREATION: Create high-end, complementary architectural furniture (sofa edges, designer coffee table) to place around the carpet."
+        "5. STYLE HARMONY: Recreate the furniture layout and room context of Image 1, but you MUST strictly apply the exact design style, wood tones, materials, and fabric textures described in the Detailed Prompt. Completely override the original style of Image 1 with the specified room style." : 
+        "5. FURNITURE CREATION: Create high-end, complementary architectural furniture (sofa edges, designer coffee table) to place around the carpet matching the exact style described."
       }
       
       STYLING DIRECTIVE: 

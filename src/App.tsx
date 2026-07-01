@@ -838,6 +838,147 @@ export default function App() {
     setChatMessages(prev => [...prev, newUserMsg]);
     setAgentInputMode("none");
 
+    // Intercept room style change requests anywhere in the dialogue
+    const isRoomStyleRequest = (
+      /风格|房间|背景|家装|装修/i.test(userInput) ||
+      /奶油风|现代简约|北欧风|新中式|侘寂风|轻奢风|日式原木|原木风|工业风|美式复古|法式复古|复古风|田园风|极简风/i.test(userInput)
+    ) && !/地毯|毯子|地垫|地毯图|绒/i.test(userInput);
+
+    if (isRoomStyleRequest) {
+      let matchedStyleId = "";
+      let matchedStyleLabel = "";
+      
+      const cleanInput = userInput.trim().replace(/风$/, "");
+      if (cleanInput.includes("奶油")) {
+        matchedStyleId = "opt-style-cream";
+        matchedStyleLabel = "奶油风";
+      } else if (cleanInput.includes("现代简约") || (cleanInput.includes("现代") && cleanInput.includes("简约"))) {
+        matchedStyleId = "opt-style-modern";
+        matchedStyleLabel = "现代简约";
+      } else if (cleanInput.includes("北欧")) {
+        matchedStyleId = "opt-style-nordic";
+        matchedStyleLabel = "北欧风";
+      } else if (cleanInput.includes("新中式") || cleanInput.includes("中式")) {
+        matchedStyleId = "opt-style-newchinese";
+        matchedStyleLabel = "新中式";
+      } else if (cleanInput.includes("侘寂")) {
+        matchedStyleId = "opt-style-wabisabi";
+        matchedStyleLabel = "侘寂风";
+      } else if (cleanInput.includes("轻奢")) {
+        matchedStyleId = "opt-style-lightluxury";
+        matchedStyleLabel = "轻奢风";
+      }
+
+      if (matchedStyleId) {
+        const selectedStyle = predefinedStyles.find(s => s.id === matchedStyleId.replace("opt-style-", ""));
+        if (selectedStyle) {
+          const styleDesc = selectedStyle.name + "：" + selectedStyle.desc;
+          setRoomAnalysis(styleDesc);
+          if (!roomImage) {
+            setPredefinedStyleAnalysis(styleDesc);
+            setUsePredefinedStyle(true);
+          }
+          
+          const nextStepText = carpetImage 
+            ? `👍 已为您成功更新场景背景风格为 **${selectedStyle.name}**！由于您已经上传或配置了地毯，您现在可以直接在下方调整渲染参数，并点击下方按钮开启 AI 极速渲染：`
+            : `✨ 很好，已成功为您切换并加载「${selectedStyle.name}」背景场景。\n\n💡 **风格介绍**：\n${selectedStyle.desc}\n\n接下来，请**上传您的地毯图**，或者直接输入文字描述地毯外观，我帮您进行智能编织：`;
+          
+          setTimeout(() => {
+            setChatMessages(prev => [...prev, {
+              id: `msg-asst-${Date.now()}`,
+              sender: "assistant",
+              text: nextStepText,
+              type: carpetImage ? "param_config" : "upload_carpet",
+              options: carpetImage ? [{ id: "opt-start-render", label: "🚀 开启智能极速渲染" }] : undefined
+            }]);
+            
+            if (carpetImage) {
+              setAgentInputMode("render-params-or-start");
+              setCurrentStep("generate");
+            } else {
+              setAgentInputMode("carpet-upload-or-text");
+              setCurrentStep("carpet");
+            }
+          }, 400);
+          return;
+        }
+      } else {
+        // Treat as direct custom style name
+        const thinkingId = `thinking-${Date.now()}`;
+        setTimeout(() => {
+          setChatMessages(prev => [...prev, { 
+            id: thinkingId, 
+            sender: "assistant", 
+            text: `🔍 正在为您规划和解析「${userInput}」风格的室内空间、环境光影及三维透视结构，请稍候...`,
+            type: "thinking"
+          }]);
+        }, 100);
+
+        try {
+          const analysis = await analyzeRoomDescription(userInput);
+          const styleDesc = "自定义风格：" + userInput + " (" + analysis + ")";
+          setRoomAnalysis(styleDesc);
+          if (!roomImage) {
+            setPredefinedStyleAnalysis(styleDesc);
+            setUsePredefinedStyle(true);
+          }
+
+          const nextStepText = carpetImage 
+            ? `👍 已根据您的描述，为您成功规划和定制了 **${userInput}** 渲染场景：\n\n**🔍 场景设计方案：**\n${analysis}\n\n由于您已经上传或配置了地毯，您现在可以直接在下方调整渲染参数，并点击下方按钮开启 AI 极速渲染：`
+            : `✨ 很好，我已根据您的描述，为您成功规划和定制了 **${userInput}** 渲染场景：\n\n**🔍 场景设计方案：**\n${analysis}\n\n接下来，请**上传您的地毯图**，或者直接在此输入文字描述您想要的地毯外观，我帮您进行智能编织：`;
+
+          setTimeout(() => {
+            setChatMessages(prev => prev.filter(m => m.id !== thinkingId).concat({
+              id: `msg-asst-${Date.now()}`,
+              sender: "assistant",
+              text: nextStepText,
+              type: carpetImage ? "param_config" : "upload_carpet",
+              options: carpetImage ? [{ id: "opt-start-render", label: "🚀 开启智能极速渲染" }] : undefined
+            }));
+
+            if (carpetImage) {
+              setAgentInputMode("render-params-or-start");
+              setCurrentStep("generate");
+            } else {
+              setAgentInputMode("carpet-upload-or-text");
+              setCurrentStep("carpet");
+            }
+          }, 400);
+        } catch (err) {
+          console.error("Failed to analyze room description:", err);
+          const styleDesc = "自定义风格：" + userInput;
+          setRoomAnalysis(styleDesc);
+          if (!roomImage) {
+            setPredefinedStyleAnalysis(styleDesc);
+            setUsePredefinedStyle(true);
+          }
+
+          const nextStepText = carpetImage 
+            ? `👍 已成功为您量身定制 **${userInput}** 背景场景。\n\n由于您已经上传了地毯，现在可以直接在下方调整参数，点击下方按钮开启 AI 极速渲染：`
+            : `✨ 很好，已成功为您量身定制 **${userInput}** 背景场景。\n\n接下来，请**上传或拖拽您的地毯图**，我将帮您提取材质特性与纹理分布：`;
+
+          setTimeout(() => {
+            setChatMessages(prev => prev.filter(m => m.id !== thinkingId).concat({
+              id: `msg-asst-${Date.now()}`,
+              sender: "assistant",
+              text: nextStepText,
+              type: carpetImage ? "param_config" : "upload_carpet",
+              options: carpetImage ? [{ id: "opt-start-render", label: "🚀 开启智能极速渲染" }] : undefined
+            }));
+
+            if (carpetImage) {
+              setAgentInputMode("render-params-or-start");
+              setCurrentStep("generate");
+            } else {
+              setAgentInputMode("carpet-upload-or-text");
+              setCurrentStep("carpet");
+            }
+          }, 400);
+        }
+        return;
+      }
+    }
+
     const isBackgroundSelection = !roomImage && !usePredefinedStyle && !roomAnalysis;
     const isStyleSelection = usePredefinedStyle && !roomAnalysis;
     const isCarpetUpload = (roomImage || usePredefinedStyle) && (!carpetImage || !carpetAnalysis);
