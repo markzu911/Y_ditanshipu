@@ -76,7 +76,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, initialDelay =
  */
 export async function validateIsRoom(imageBase64: string): Promise<{ isValid: boolean; reason?: string }> {
   return withRetry(async () => {
-    const response = await callGeminiApi("models/gemini-3-flash-preview", {
+    const response = await callGeminiApi("gemini-3.5-flash", {
       parts: [
         {
           inlineData: {
@@ -104,7 +104,7 @@ export async function validateIsRoom(imageBase64: string): Promise<{ isValid: bo
  */
 export async function validateIsCarpet(imageBase64: string): Promise<{ isValid: boolean; reason?: string }> {
   return withRetry(async () => {
-    const response = await callGeminiApi("models/gemini-3-flash-preview", {
+    const response = await callGeminiApi("gemini-3.5-flash", {
       parts: [
         {
           inlineData: {
@@ -129,7 +129,7 @@ export async function validateIsCarpet(imageBase64: string): Promise<{ isValid: 
 
 export async function analyzeRoom(base64Image: string): Promise<string> {
   return withRetry(async () => {
-    const response = await callGeminiApi("models/gemini-3-flash-preview", {
+    const response = await callGeminiApi("gemini-3.5-flash", {
       parts: [
         {
           inlineData: {
@@ -148,7 +148,7 @@ export async function analyzeRoom(base64Image: string): Promise<string> {
 
 export async function analyzeCarpet(base64Image: string): Promise<string> {
   return withRetry(async () => {
-    const response = await callGeminiApi("models/gemini-3-flash-preview", {
+    const response = await callGeminiApi("gemini-3.5-flash", {
       parts: [
         {
           inlineData: {
@@ -190,7 +190,7 @@ export async function generateResultPrompt(
 
     const keywords = saasPrompt && saasPrompt.length > 0 ? `Supplemental Keywords: ${saasPrompt.join(", ")}` : "";
 
-    const response = await callGeminiApi("models/gemini-3-flash-preview", {
+    const response = await callGeminiApi("gemini-3.5-flash", {
       parts: [
         {
           text: `基于以下分析和SaaS平台提供的内容，请生成一段详细的英文提示词（Prompt），用于AI生图。

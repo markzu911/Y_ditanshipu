@@ -12,7 +12,13 @@ import {
   Maximize,
   X,
   ArrowLeft,
-  Loader2
+  Loader2,
+  Bot,
+  User,
+  MessageSquare,
+  Cpu,
+  Layers,
+  Send
 } from "lucide-react";
 import { 
   analyzeRoom, 
@@ -36,6 +42,16 @@ import {
 } from "./services/saasService";
 
 type Step = "room" | "carpet" | "generate" | "result";
+type AppMode = "select" | "engineer" | "agent";
+
+interface ChatMessage {
+  id: string;
+  sender: "assistant" | "user";
+  text?: string;
+  type?: "text" | "options" | "upload_room" | "upload_carpet" | "room_analysis" | "carpet_analysis" | "generating" | "result";
+  options?: { id: string; label: string }[];
+  data?: any;
+}
 
 /**
  * Helper to ensure the image is a JPEG and within supported format for GPT Image API
@@ -95,6 +111,55 @@ export default function App() {
   const [uploadedRoomAnalysis, setUploadedRoomAnalysis] = useState<string | null>(null);
   const [predefinedStyleAnalysis, setPredefinedStyleAnalysis] = useState<string | null>(null);
   const [analysisStepIndex, setAnalysisStepIndex] = useState(0);
+  const [appMode, setAppMode] = useState<AppMode>("select");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [agentInputMode, setAgentInputMode] = useState<"none" | "custom-style-name">("none");
+  const [agentTextValue, setAgentTextValue] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const agentRoomInputRef = useRef<HTMLInputElement>(null);
+  const agentCarpetInputRef = useRef<HTMLInputElement>(null);
+
+  const initAgentChat = () => {
+    setChatMessages([
+      {
+        id: "msg-welcome",
+        sender: "assistant",
+        text: "👋 您好！我是您的 AI 智能铺装设计助手。我会一步一步协助您分析空间、挑选地毯，并渲染出完美的实景效果图。\n\n首先，请问您想如何提供您的房间场景呢？",
+        type: "options",
+        options: [
+          { id: "opt-room-upload", label: "📷 上传我的房间照片" },
+          { id: "opt-room-style", label: "🎨 选择特定装修风格" }
+        ]
+      }
+    ]);
+    setAgentInputMode("none");
+    setAgentTextValue("");
+    setRoomImage(null);
+    setCarpetImage(null);
+    setRoomAnalysis(null);
+    setCarpetAnalysis(null);
+    setResultImage(null);
+    setDetailImage(null);
+    setModelImage(null);
+    setModelFrontImage(null);
+    setUsePredefinedStyle(false);
+    setUploadedRoomImage(null);
+    setUploadedRoomAnalysis(null);
+    setPredefinedStyleAnalysis(null);
+  };
+
+  useEffect(() => {
+    if (appMode === "agent" && chatMessages.length === 0) {
+      initAgentChat();
+    }
+  }, [appMode]);
+
+  // Scroll to bottom of chat when messages change
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages, agentInputMode]);
 
   useEffect(() => {
     if (isAnalyzing) {
@@ -118,7 +183,7 @@ export default function App() {
   const [params, setParams] = useState<GenerationParams>({
     aspectRatio: "1:1",
     imageSize: "1K",
-    model: "gemini-3.1-flash-image-preview",
+    model: "gemini-3.1-flash-image",
     filter: "none",
     modelGender: "female",
     modelAge: "youth"
@@ -250,6 +315,388 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  const handleAgentOption = async (optionId: string, optionLabel: string) => {
+    // Add user's selection to chat
+    const newUserMsg: ChatMessage = {
+      id: `msg-user-${Date.now()}`,
+      sender: "user",
+      text: optionLabel
+    };
+    
+    setChatMessages(prev => [...prev, newUserMsg]);
+
+    // Simulate assistant replying
+    setTimeout(async () => {
+      if (optionId === "opt-room-upload") {
+        setUsePredefinedStyle(false);
+        const assistantReply: ChatMessage = {
+          id: `msg-asst-${Date.now()}`,
+          sender: "assistant",
+          text: "好的！请上传您的房间原图，我会立刻帮您评估全景的空间透视与环境光照结构：",
+          type: "upload_room"
+        };
+        setChatMessages(prev => [...prev, assistantReply]);
+      } else if (optionId === "opt-room-style") {
+        setUsePredefinedStyle(true);
+        const assistantReply: ChatMessage = {
+          id: `msg-asst-${Date.now()}`,
+          sender: "assistant",
+          text: "没问题！我为您准备了 6 款经典的软装与家装设计风格，或者您也可以选择『自定义设计风格』：",
+          type: "options",
+          options: [
+            ...predefinedStyles.map(style => ({
+              id: `opt-style-${style.id}`,
+              label: `${style.name}`
+            })),
+            { id: "opt-style-custom", label: "✨ 自定义设计风格..." }
+          ]
+        };
+        setChatMessages(prev => [...prev, assistantReply]);
+      } else if (optionId === "opt-style-custom") {
+        const assistantReply: ChatMessage = {
+          id: `msg-asst-${Date.now()}`,
+          sender: "assistant",
+          text: "✍️ 没问题！请输入您自定义的装修风格名称或描述。\n\n例如：「日式原木风」、「法式复古绿浪漫风」或「现代工业极简」。\n\n请在下方的输入框中输入并发送，我将为您量身定制渲染场景！"
+        };
+        setChatMessages(prev => [...prev, assistantReply]);
+        setAgentInputMode("custom-style-name");
+      } else if (optionId.startsWith("opt-style-")) {
+        const styleId = optionId.replace("opt-style-", "");
+        const selectedStyle = predefinedStyles.find(s => s.id === styleId);
+        if (selectedStyle) {
+          const styleDesc = selectedStyle.name + "：" + selectedStyle.desc;
+          setRoomAnalysis(styleDesc);
+          setPredefinedStyleAnalysis(styleDesc);
+          
+          const assistantReply: ChatMessage = {
+            id: `msg-asst-${Date.now()}`,
+            sender: "assistant",
+            text: `✨ 很好，已成功为您加载预设的「${selectedStyle.name}」背景场景。\n\n接下来，请上传或拖拽您的地毯图（原图或样本），我将帮您提取材质特性与纹理分布：`,
+            type: "upload_carpet"
+          };
+          setChatMessages(prev => [...prev, assistantReply]);
+        }
+      } else if (optionId === "opt-start-render") {
+        // Start AI Rendering
+        const progressMsgId = `msg-generating-${Date.now()}`;
+        const generatingMsg: ChatMessage = {
+          id: progressMsgId,
+          sender: "assistant",
+          type: "generating"
+        };
+        setChatMessages(prev => [...prev, generatingMsg]);
+        
+        try {
+          // Verify integral
+          if (userId && toolId) {
+            const verify = await verifyIntegral(userId, toolId);
+            if (!verify.success) {
+              setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+                id: `msg-error-${Date.now()}`,
+                sender: "assistant",
+                text: `❌ 积分不足：${verify.message || "无法开启 AI 极速渲染。"}`
+              }));
+              return;
+            }
+          }
+
+          const prompt = await generateResultPrompt(
+            roomAnalysis || "", 
+            carpetAnalysis || "", 
+            !usePredefinedStyle,
+            saasContext,
+            saasPrompt
+          );
+          const roomBase64 = roomImage ? roomImage.split(",")[1] : null;
+          const carpetBase64 = carpetImage ? carpetImage.split(",")[1] : null;
+          if (!carpetBase64) throw new Error("Carpet image is missing");
+
+          let finalResultImg = "";
+          let finalDetailImg = "";
+          let finalModelImg = "";
+          let finalModelFrontImg = "";
+
+          const panoPromise = generateCarpetFitting(roomBase64, carpetBase64, prompt, params).then(img => {
+            finalResultImg = img;
+            setResultImage(img);
+            return img;
+          });
+          const detailPromise = generateCarpetDetail(carpetBase64, carpetAnalysis || "", params).then(img => {
+            finalDetailImg = img;
+            setDetailImage(img);
+            return img;
+          });
+          
+          const allPromises: Promise<string>[] = [panoPromise, detailPromise];
+
+          if (params.hasModel) {
+            const modelTopPromise = generateCarpetModelInteraction(roomBase64, carpetBase64, prompt, params).then(img => {
+              finalModelImg = img;
+              setModelImage(img);
+              return img;
+            });
+            const modelFrontPromise = generateCarpetModelFrontal(roomBase64, carpetBase64, prompt, params).then(img => {
+              finalModelFrontImg = img;
+              setModelFrontImage(img);
+              return img;
+            });
+            allPromises.push(modelTopPromise, modelFrontPromise);
+          }
+
+          const generatedImages = await Promise.all(allPromises);
+
+          // Consume integral
+          if (userId && toolId) {
+            try {
+              const requestId = createRequestId();
+              const res = await consumeIntegral(userId, toolId, requestId);
+              if (res.success && res.data) {
+                setIntegral(res.data.currentIntegral);
+                if (generatedImages.length > 0) {
+                  await uploadResultImage(userId, toolId, generatedImages, requestId);
+                }
+              }
+            } catch (error) {
+              console.error("Failed to consume integral in Agent mode:", error);
+            }
+          }
+
+          // Show Success Results in Chat Bubble
+          setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+            id: `msg-result-${Date.now()}`,
+            sender: "assistant",
+            type: "result",
+            text: "✨ 地毯铺装渲染效果已圆满生成！您可以直接查看、切换预览图，或点击下载高清效果图：",
+            data: {
+              resultImage: finalResultImg,
+              detailImage: finalDetailImg,
+              modelImage: finalModelImg,
+              modelFrontImage: finalModelFrontImg
+            }
+          }, {
+            id: `msg-followup-${Date.now()}`,
+            sender: "assistant",
+            text: "您想继续尝试其他搭配或开启全新设计吗？",
+            type: "options",
+            options: [
+              { id: "opt-restart-agent", label: "🔄 重新开始设计" }
+            ]
+          }));
+
+        } catch (error: any) {
+          console.error("Agent generation failed:", error);
+          setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+            id: `msg-error-${Date.now()}`,
+            sender: "assistant",
+            text: "❌ 铺装渲染过程中出现了未知错误。建议您点击下方按钮重新尝试生成："
+          }, {
+            id: `msg-retry-${Date.now()}`,
+            sender: "assistant",
+            type: "options",
+            options: [
+              { id: "opt-start-render", label: "🔄 重新生成试铺" }
+            ]
+          }));
+        }
+      } else if (optionId === "opt-restart-agent") {
+        initAgentChat();
+      }
+    }, 400);
+  };
+
+  const handleAgentFileUpload = async (file: File, type: "room" | "carpet") => {
+    if (!file) return;
+
+    const progressMsgId = `msg-analyzing-${Date.now()}`;
+    const fileReader = new FileReader();
+
+    fileReader.onload = async (e) => {
+      let dataUrl = e.target?.result as string;
+      
+      try {
+        // Show user upload image in chat
+        const userImageMsg: ChatMessage = {
+          id: `msg-user-img-${Date.now()}`,
+          sender: "user",
+          text: type === "room" ? "📷 上传了我的房间照片" : "🧶 上传了我的地毯样本图片",
+          data: { previewUrl: dataUrl }
+        };
+
+        // Show analytical progress steps (room_analysis or carpet_analysis)
+        const analysisProgressMsg: ChatMessage = {
+          id: progressMsgId,
+          sender: "assistant",
+          type: type === "room" ? "room_analysis" : "carpet_analysis"
+        };
+
+        setChatMessages(prev => [...prev, userImageMsg, analysisProgressMsg]);
+
+        // Start step-by-step state animations
+        setAnalysisStepIndex(0);
+        const intervalId = setInterval(() => {
+          setAnalysisStepIndex(prev => (prev + 1) % 4);
+        }, 1800);
+
+        // Verify integral
+        if (userId && toolId) {
+          const verify = await verifyIntegral(userId, toolId);
+          if (!verify.success) {
+            clearInterval(intervalId);
+            setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+              id: `msg-error-${Date.now()}`,
+              sender: "assistant",
+              text: `❌ 积分不足：${verify.message || "您的积分不足，无法分析与上传图片。"}`
+            }));
+            return;
+          }
+        }
+
+        dataUrl = await ensureJpeg(dataUrl);
+        const base64 = dataUrl.split(",")[1];
+
+        if (type === "room") {
+          setRoomImage(dataUrl);
+          setUploadedRoomImage(dataUrl);
+          
+          // Validate Room
+          const validation = await validateIsRoom(base64);
+          clearInterval(intervalId);
+          if (!validation.isValid) {
+            setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+              id: `msg-error-${Date.now()}`,
+              sender: "assistant",
+              text: `⚠️ 空间检测失败：${validation.reason || "没有识别到合适的室内空间。"} 请重新上传一张清晰的卧室或客厅地面实景照。`
+            }, {
+              id: `msg-reupload-${Date.now()}`,
+              sender: "assistant",
+              text: "请在此处重试上传房间图片：",
+              type: "upload_room"
+            }));
+            return;
+          }
+
+          // Deduct points and upload room image
+          if (userId && toolId) {
+            try {
+              const requestId = createRequestId();
+              const res = await consumeIntegral(userId, toolId, requestId);
+              if (res.success && res.data) {
+                setIntegral(res.data.currentIntegral);
+                await uploadResultImage(userId, toolId, dataUrl, requestId);
+              }
+            } catch (error) {
+              console.error("Failed to consume/upload room in Agent mode:", error);
+            }
+          }
+
+          const analysis = await analyzeRoom(base64);
+          setRoomAnalysis(analysis);
+          setUploadedRoomAnalysis(analysis);
+
+          setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+            id: `msg-success-${Date.now()}`,
+            sender: "assistant",
+            text: `🎯 三维空间定位与光影解析完成！\n\n接下来，请上传您的地毯图（原图或样本），我会帮您提取材质特性与纹理：`,
+            type: "upload_carpet"
+          }));
+
+        } else {
+          setCarpetImage(dataUrl);
+          
+          // Validate Carpet
+          const validation = await validateIsCarpet(base64);
+          clearInterval(intervalId);
+          if (!validation.isValid) {
+            setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+              id: `msg-error-${Date.now()}`,
+              sender: "assistant",
+              text: `⚠️ 地毯识别失败：${validation.reason || "没有识别到地毯原图或面料。"} 请重新上传一张清晰的地毯图案照片。`
+            }, {
+              id: `msg-reupload-${Date.now()}`,
+              sender: "assistant",
+              text: "请在此处重试上传地毯图片：",
+              type: "upload_carpet"
+            }));
+            return;
+          }
+
+          // Deduct points and upload carpet image
+          if (userId && toolId) {
+            try {
+              const requestId = createRequestId();
+              const res = await consumeIntegral(userId, toolId, requestId);
+              if (res.success && res.data) {
+                setIntegral(res.data.currentIntegral);
+                await uploadResultImage(userId, toolId, dataUrl, requestId);
+              }
+            } catch (error) {
+              console.error("Failed to consume/upload carpet in Agent mode:", error);
+            }
+          }
+
+          const analysis = await analyzeCarpet(base64);
+          setCarpetAnalysis(analysis);
+
+          setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+            id: `msg-success-${Date.now()}`,
+            sender: "assistant",
+            text: `🎯 地毯纹理及微观绒头分析成功！\n\n万事俱备，我们可以开启 AI 极速搭配试铺了。请点击下方按钮开启渲染：`,
+            type: "options",
+            options: [
+              { id: "opt-start-render", label: "🚀 开启智能极速渲染" }
+            ]
+          }));
+        }
+
+      } catch (error: any) {
+        console.error("Agent upload parsing error:", error);
+        setChatMessages(prev => prev.filter(m => m.id !== progressMsgId).concat({
+          id: `msg-error-${Date.now()}`,
+          sender: "assistant",
+          text: "❌ 空间图片处理出现未知错误。请检查网络后重试。"
+        }, {
+          id: `msg-reupload-${Date.now()}`,
+          sender: "assistant",
+          text: "请点击下方按钮重试：",
+          type: type === "room" ? "upload_room" : "upload_carpet"
+        }));
+      }
+    };
+    fileReader.readAsDataURL(file);
+  };
+
+  const handleAgentSubmitText = async () => {
+    if (!agentTextValue.trim()) return;
+    const userInput = agentTextValue.trim();
+    setAgentTextValue("");
+
+    // Add user's text message to chat
+    const newUserMsg: ChatMessage = {
+      id: `msg-user-${Date.now()}`,
+      sender: "user",
+      text: userInput
+    };
+    
+    setChatMessages(prev => [...prev, newUserMsg]);
+    setAgentInputMode("none");
+
+    if (agentInputMode === "custom-style-name") {
+      setTimeout(() => {
+        const styleDesc = "自定义风格：" + userInput;
+        setRoomAnalysis(styleDesc);
+        setPredefinedStyleAnalysis(styleDesc);
+        
+        const assistantReply: ChatMessage = {
+          id: `msg-asst-${Date.now()}`,
+          sender: "assistant",
+          text: `✨ 很好，已成功为您量身定制 **${userInput}** 背景场景。\n\n接下来，请**上传或拖拽您的地毯图（原图或样本）**，我将帮您提取材质特性与纹理分布：`,
+          type: "upload_carpet"
+        };
+        setChatMessages(prev => [...prev, assistantReply]);
+      }, 400);
+    }
+  };
+
   const startGeneration = async () => {
     if ((!roomImage && !usePredefinedStyle) || !carpetImage || !roomAnalysis || !carpetAnalysis) return;
     
@@ -361,47 +808,87 @@ export default function App() {
       <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm flex items-center shrink-0">
         <div className="max-w-5xl mx-auto px-4 sm:px-8 w-full flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center cursor-pointer" onClick={() => setAppMode("select")}>
               <div className="w-4 h-4 bg-white rounded-sm rotate-45"></div>
             </div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight">AI 地毯试铺助手</h1>
+            <div className="flex flex-col">
+              <h1 className="text-sm sm:text-base font-bold tracking-tight text-slate-800 cursor-pointer" onClick={() => setAppMode("select")}>AI 地毯试铺助手</h1>
+              {appMode !== "select" && (
+                <span className="text-[10px] text-indigo-600 font-semibold leading-none">
+                  {appMode === "agent" ? "🤖 智能设计助手" : "📐 专家工作室"}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-3 sm:gap-6">
-            <nav className="hidden lg:flex items-center gap-8 text-sm font-medium">
-              {["场景分析", "地毯匹配", "生成预览", "结果预览"].map((label, idx) => {
-                const steps: Step[] = ["room", "carpet", "generate", "result"];
-                const isActive = currentStep === steps[idx];
-                const isDone = steps.indexOf(currentStep) > idx;
-
-                if (isActive) {
-                  return (
-                    <div key={label} className="flex items-center gap-2 text-indigo-600">
-                      <span className="w-6 h-6 rounded-full border-2 border-indigo-600 flex items-center justify-center text-xs italic">
-                        0{idx + 1}
-                      </span>
-                      <span>{label}</span>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div key={label} className={`flex items-center gap-2 ${isDone ? "text-indigo-400" : "text-slate-400"}`}>
-                    <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs ${isDone ? "border-indigo-400 bg-indigo-50" : "border-slate-300"}`}>
-                      {isDone ? <CheckCircle2 className="w-3 h-3" /> : `0${idx + 1}`}
-                    </span>
-                    <span>{label}</span>
-                  </div>
-                );
-              })}
-            </nav>
-            <div className="lg:hidden flex items-center">
-              <div className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-bold border border-indigo-100">
-                {currentStep === "room" && "步骤 1/4"}
-                {currentStep === "carpet" && "步骤 2/4"}
-                {currentStep === "generate" && "步骤 3/4"}
-                {currentStep === "result" && "步骤 4/4"}
+            {/* Mode Switcher Segmented Control */}
+            {appMode !== "select" && (
+              <div className="flex bg-slate-100 p-0.5 rounded-lg text-xs font-semibold">
+                <button
+                  onClick={() => { setAppMode("agent"); initAgentChat(); }}
+                  className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 ${
+                    appMode === "agent" 
+                      ? "bg-white text-indigo-600 shadow-sm" 
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <Bot className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">智能体</span>
+                </button>
+                <button
+                  onClick={() => { setAppMode("engineer"); reset(); }}
+                  className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 ${
+                    appMode === "engineer" 
+                      ? "bg-white text-indigo-600 shadow-sm" 
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">专家模式</span>
+                </button>
               </div>
-            </div>
+            )}
+
+            {appMode === "engineer" && (
+              <>
+                <nav className="hidden lg:flex items-center gap-6 text-sm font-medium">
+                  {["场景分析", "地毯匹配", "生成预览", "结果预览"].map((label, idx) => {
+                    const steps: Step[] = ["room", "carpet", "generate", "result"];
+                    const isActive = currentStep === steps[idx];
+                    const isDone = steps.indexOf(currentStep) > idx;
+
+                    if (isActive) {
+                      return (
+                        <div key={label} className="flex items-center gap-1.5 text-indigo-600 font-bold">
+                          <span className="w-5 h-5 rounded-full border-2 border-indigo-600 flex items-center justify-center text-[10px] italic">
+                            0{idx + 1}
+                          </span>
+                          <span className="text-xs">{label}</span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={label} className={`flex items-center gap-1.5 ${isDone ? "text-indigo-400" : "text-slate-400"}`}>
+                        <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] ${isDone ? "border-indigo-400 bg-indigo-50" : "border-slate-300"}`}>
+                          {isDone ? <CheckCircle2 className="w-2.5 h-2.5" /> : `0${idx + 1}`}
+                        </span>
+                        <span className="text-xs">{label}</span>
+                      </div>
+                    );
+                  })}
+                </nav>
+                <div className="lg:hidden flex items-center">
+                  <div className="bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-indigo-100">
+                    {currentStep === "room" && "步骤 1/4"}
+                    {currentStep === "carpet" && "步骤 2/4"}
+                    {currentStep === "generate" && "步骤 3/4"}
+                    {currentStep === "result" && "步骤 4/4"}
+                  </div>
+                </div>
+              </>
+            )}
+
             {integral !== null && (
               <div className="flex items-center gap-1.5 sm:gap-2 bg-indigo-50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-indigo-100">
                 <Sparkles className="w-3.5 h-3.5 sm:w-4 h-4 text-indigo-600" />
@@ -412,9 +899,441 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
+      <main className="max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
         <AnimatePresence mode="wait">
-          {currentStep === "room" && (
+          {appMode === "select" && (
+            <motion.div
+              key="mode-selection"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+              className="max-w-4xl mx-auto space-y-8 py-6"
+            >
+              <div className="text-center space-y-3">
+                <div className="inline-flex px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold border border-indigo-100">
+                  🏠 铺装拟真度评测 V4.0
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-800">
+                  开启您的 AI 极速试铺之旅
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
+                  无论您是希望得到贴心的智能设计助理引导，还是渴望在全功能的专业面板上精细调校，我们都为您提供了专属的使用方案。
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                {/* Agent Mode Card */}
+                <div 
+                  className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:border-indigo-300 transition-all duration-300 flex flex-col justify-between group cursor-pointer"
+                  onClick={() => { setAppMode("agent"); initAgentChat(); }}
+                >
+                  <div className="space-y-4">
+                    <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+                      <Bot className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-slate-800">智能体模式</h3>
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-bold">
+                          推荐新手
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        对话式交互，像和专业软装设计师聊天一样。AI 将一步步引导您选择房间场景、材质提取、全景拟合、直接在聊天框内返回生图效果。
+                      </p>
+                    </div>
+                  </div>
+                  <button className="w-full mt-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 flex items-center justify-center gap-1.5 transition-colors">
+                    <MessageSquare className="w-4 h-4" />
+                    开启智能对话引导
+                  </button>
+                </div>
+
+                {/* Engineer Mode Card */}
+                <div 
+                  className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:border-indigo-300 transition-all duration-300 flex flex-col justify-between group cursor-pointer"
+                  onClick={() => { setAppMode("engineer"); reset(); }}
+                >
+                  <div className="space-y-4">
+                    <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600 group-hover:scale-110 transition-transform">
+                      <Cpu className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-slate-800">专家工作台</h3>
+                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold">
+                          高阶微调
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        经典分步流程。提供高可控性的光影/漫反射/比例匹配/人模参数调节，支持多图层切换比对、局部放大及原图下载。
+                      </p>
+                    </div>
+                  </div>
+                  <button className="w-full mt-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors">
+                    <Layers className="w-4 h-4" />
+                    进入工程师工作台
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {appMode === "agent" && (
+            <motion.div
+              key="agent-chat"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-md flex flex-col h-[75vh]"
+            >
+              {/* Chat Title bar */}
+              <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shadow-inner">
+                    <Bot className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">AI 智能设计助手</h3>
+                    <p className="text-[10px] text-slate-400">正在为您提供一对一铺装顾问服务</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={initAgentChat}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  <RefreshCcw className="w-3.5 h-3.5" />
+                  重置对话
+                </button>
+              </div>
+
+              {/* Message Streams */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/30 flex flex-col">
+                {chatMessages.map((msg) => {
+                  const isAsst = msg.sender === "assistant";
+                  return (
+                    <div 
+                      key={msg.id} 
+                      className={`flex gap-3 max-w-[85%] ${isAsst ? "self-start" : "ml-auto flex-row-reverse"}`}
+                    >
+                      {/* Avatar */}
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isAsst ? "bg-indigo-100 text-indigo-600" : "bg-indigo-600 text-white"}`}>
+                        {isAsst ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                      </div>
+
+                      <div className="space-y-2">
+                        {/* Text bubble */}
+                        {msg.text && (
+                          <div className={`rounded-2xl px-4 py-2.5 text-xs sm:text-sm leading-relaxed shadow-sm ${
+                            isAsst 
+                              ? "bg-white text-slate-700 border border-slate-100 rounded-tl-none whitespace-pre-line" 
+                              : "bg-indigo-600 text-white rounded-tr-none"
+                          }`}>
+                            {msg.text}
+                          </div>
+                        )}
+
+                        {/* User custom image preview inside bubble */}
+                        {msg.data?.previewUrl && (
+                          <div className="rounded-xl overflow-hidden border border-slate-200 max-w-xs shadow-md">
+                            <img src={msg.data.previewUrl} alt="uploaded" className="w-full h-auto object-cover max-h-48" />
+                          </div>
+                        )}
+
+                        {/* Interactive upload triggers */}
+                        {msg.type === "upload_room" && (
+                          <div className="p-4 bg-white rounded-xl border border-dashed border-indigo-300 hover:border-indigo-500 transition-all flex flex-col items-center gap-3 text-center cursor-pointer shadow-sm relative group">
+                            <input 
+                              type="file" 
+                              ref={agentRoomInputRef} 
+                              accept="image/*" 
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleAgentFileUpload(file, "room");
+                              }}
+                              className="absolute inset-0 opacity-0 cursor-pointer"
+                            />
+                            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform">
+                              <Upload className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-700">点击或将房间照片拖到这里</p>
+                              <p className="text-[10px] text-slate-400 mt-1">支持 JPEG / PNG / WEBP 格式</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {msg.type === "upload_carpet" && (
+                          <div className="p-4 bg-white rounded-xl border border-dashed border-indigo-300 hover:border-indigo-500 transition-all flex flex-col items-center gap-3 text-center cursor-pointer shadow-sm relative group">
+                            <input 
+                              type="file" 
+                              ref={agentCarpetInputRef} 
+                              accept="image/*" 
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleAgentFileUpload(file, "carpet");
+                              }}
+                              className="absolute inset-0 opacity-0 cursor-pointer"
+                            />
+                            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform">
+                              <Upload className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-700">点击或将地毯原样/面料照片拖到这里</p>
+                              <p className="text-[10px] text-slate-400 mt-1">支持 JPEG / PNG / WEBP 格式</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Option buttons */}
+                        {msg.type === "options" && msg.options && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {msg.options.map((opt) => (
+                              <button
+                                key={opt.id}
+                                onClick={() => handleAgentOption(opt.id, opt.label)}
+                                className="px-3.5 py-1.5 bg-white hover:bg-indigo-50 hover:border-indigo-300 border border-slate-200 text-[11px] sm:text-xs font-bold text-indigo-600 hover:text-indigo-700 rounded-full transition-all shadow-sm active:scale-95"
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Inline progress steps for room analysis */}
+                        {msg.type === "room_analysis" && (
+                          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm max-w-sm space-y-4">
+                            <div className="flex flex-col items-center justify-center text-center gap-2">
+                              <div className="relative w-10 h-10 flex items-center justify-center">
+                                <div className="absolute inset-0 rounded-full border border-indigo-100 animate-[ping_1.5s_infinite]" />
+                                <div className="absolute inset-0 rounded-full border-2 border-slate-100 border-t-indigo-600 animate-spin" />
+                                <Sparkles className="w-4 h-4 text-indigo-600" />
+                              </div>
+                              <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full animate-pulse">
+                                空间分析阶段 {analysisStepIndex + 1}/4
+                              </span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {[
+                                "初始化AI视觉和空间关系解析模型",
+                                "判定并标记地平线、墙角以及透视比例参数",
+                                "检测全屋自然光源、环境漫射光及色温明暗",
+                                "融合家装风格大语言知识，输出分析标签与说明"
+                              ].map((step, idx) => {
+                                const isDone = analysisStepIndex > idx;
+                                const isActive = analysisStepIndex === idx;
+                                return (
+                                  <div 
+                                    key={idx} 
+                                    className={`flex items-center gap-2 p-1.5 rounded-lg text-[10px] transition-all duration-300 ${
+                                      isDone ? "bg-emerald-50 text-emerald-800" : 
+                                      isActive ? "bg-indigo-50 text-indigo-900 border border-indigo-100 shadow-sm" : 
+                                      "text-slate-400 opacity-60"
+                                    }`}
+                                  >
+                                    <div className="shrink-0">
+                                      {isDone ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                      ) : isActive ? (
+                                        <Loader2 className="w-3.5 h-3.5 text-indigo-600 animate-spin" />
+                                      ) : (
+                                        <div className="w-3.5 h-3.5 rounded-full border border-slate-300 flex items-center justify-center text-[8px] font-bold">
+                                          {idx + 1}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span className="font-semibold truncate">{step}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Inline progress steps for carpet analysis */}
+                        {msg.type === "carpet_analysis" && (
+                          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm max-w-sm space-y-4">
+                            <div className="flex flex-col items-center justify-center text-center gap-2">
+                              <div className="relative w-10 h-10 flex items-center justify-center">
+                                <div className="absolute inset-0 rounded-full border border-indigo-100 animate-[ping_1.5s_infinite]" />
+                                <div className="absolute inset-0 rounded-full border-2 border-slate-100 border-t-indigo-600 animate-spin" />
+                                <Sparkles className="w-4 h-4 text-indigo-600" />
+                              </div>
+                              <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full animate-pulse">
+                                材质分析阶段 {analysisStepIndex + 1}/4
+                              </span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {[
+                                "初始化地毯纹理深度提取核",
+                                "色系区间、主色占比与细节密度计算",
+                                "材质流苏、梭织工艺及绒高三维特征感应",
+                                "根据光照折射生成法线漫反射提示模型"
+                              ].map((step, idx) => {
+                                const isDone = analysisStepIndex > idx;
+                                const isActive = analysisStepIndex === idx;
+                                return (
+                                  <div 
+                                    key={idx} 
+                                    className={`flex items-center gap-2 p-1.5 rounded-lg text-[10px] transition-all duration-300 ${
+                                      isDone ? "bg-emerald-50 text-emerald-800" : 
+                                      isActive ? "bg-indigo-50 text-indigo-900 border border-indigo-100 shadow-sm" : 
+                                      "text-slate-400 opacity-60"
+                                    }`}
+                                  >
+                                    <div className="shrink-0">
+                                      {isDone ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                      ) : isActive ? (
+                                        <Loader2 className="w-3.5 h-3.5 text-indigo-600 animate-spin" />
+                                      ) : (
+                                        <div className="w-3.5 h-3.5 rounded-full border border-slate-300 flex items-center justify-center text-[8px] font-bold">
+                                          {idx + 1}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span className="font-semibold truncate">{step}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Inline progress steps for generation */}
+                        {msg.type === "generating" && (
+                          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-md max-w-sm space-y-4">
+                            <div className="flex flex-col items-center justify-center text-center gap-2">
+                              <div className="relative w-12 h-12 flex items-center justify-center">
+                                <div className="absolute inset-0 rounded-full border border-indigo-100 animate-ping" />
+                                <div className="absolute inset-1 rounded-full border border-indigo-200 animate-pulse" />
+                                <div className="absolute inset-0 rounded-full border-2 border-slate-100 border-t-indigo-600 animate-spin" />
+                                <Bot className="w-5 h-5 text-indigo-600 animate-bounce" />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="inline-flex px-2 py-0.5 rounded-full bg-indigo-50 text-[9px] font-bold text-indigo-600 animate-pulse">
+                                  极速渲染中...
+                                </span>
+                                <h4 className="text-[11px] font-bold text-slate-700 max-w-xs leading-relaxed px-4 animate-pulse">
+                                  ⚡ 正在进行 3D 深度投影拟合，融合立体材质边缘与光源折射...
+                                </h4>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Big result container returned directly in Chat Bubble */}
+                        {msg.type === "result" && msg.data && (
+                          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-md w-full max-w-lg space-y-4">
+                            <div className="aspect-[4/3] rounded-xl overflow-hidden bg-slate-100 relative group border border-slate-100">
+                              <img 
+                                src={previewImage || msg.data.resultImage || msg.data.modelImage || ""} 
+                                alt="fitted result" 
+                                className="w-full h-full object-cover" 
+                              />
+                              <div className="absolute bottom-3 right-3 flex gap-2">
+                                <a 
+                                  href={previewImage || msg.data.resultImage || msg.data.modelImage || ""} 
+                                  download="agent-fitted-carpet.png"
+                                  className="p-2 bg-black/70 backdrop-blur-sm rounded-lg text-white hover:bg-black/90 transition-all shadow-md"
+                                  title="下载当前效果图"
+                                >
+                                  <Download className="w-4 h-4" />
+                                </a>
+                                <button 
+                                  onClick={() => setPreviewImage(previewImage || msg.data.resultImage)} 
+                                  className="p-2 bg-black/70 backdrop-blur-sm rounded-lg text-white hover:bg-black/90 transition-all shadow-md"
+                                >
+                                  <Maximize className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Result Selection Buttons */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                              {msg.data.resultImage && (
+                                <button 
+                                  onClick={() => setPreviewImage(msg.data.resultImage)}
+                                  className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${previewImage === msg.data.resultImage || !previewImage ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                                >
+                                  全景效果
+                                </button>
+                              )}
+                              {msg.data.detailImage && (
+                                <button 
+                                  onClick={() => setPreviewImage(msg.data.detailImage)}
+                                  className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${previewImage === msg.data.detailImage ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                                >
+                                  材质微观
+                                </button>
+                              )}
+                              {msg.data.modelImage && (
+                                <button 
+                                  onClick={() => setPreviewImage(msg.data.modelImage)}
+                                  className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${previewImage === msg.data.modelImage ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                                >
+                                  人模交互1
+                                </button>
+                              )}
+                              {msg.data.modelFrontImage && (
+                                <button 
+                                  onClick={() => setPreviewImage(msg.data.modelFrontImage)}
+                                  className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${previewImage === msg.data.modelFrontImage ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                                >
+                                  人模交互2
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Chat Input area */}
+              <div className="border-t border-slate-150 bg-white p-3">
+                {agentInputMode !== "none" ? (
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleAgentSubmitText();
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <input
+                      type="text"
+                      value={agentTextValue}
+                      onChange={(e) => setAgentTextValue(e.target.value)}
+                      placeholder="请输入自定义的设计风格名称或详细描述..."
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-700 font-medium placeholder-slate-400"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      disabled={!agentTextValue.trim()}
+                      className="p-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-xl text-xs font-bold transition-all shrink-0 shadow-sm disabled:shadow-none flex items-center justify-center"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </form>
+                ) : (
+                  <div className="flex items-center justify-between text-xs text-slate-400 py-1 px-2">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <Bot className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
+                      智能对话处于引导模式下，您可以直接点击上方选项或上传对应图片
+                    </span>
+                    <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full leading-none">全流程护航</span>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {appMode === "engineer" && currentStep === "room" && (
             <motion.div
               key="step-room"
               initial={{ opacity: 0, y: 20 }}
@@ -608,24 +1527,24 @@ export default function App() {
                         )}
                         
                         {isAnalyzing ? (
-                          <div className="flex flex-col h-full justify-center py-4 space-y-6">
+                          <div className="flex flex-col items-center justify-start space-y-4 py-2">
                             {/* Animated Visual Loader */}
-                            <div className="flex flex-col items-center justify-center text-center gap-3">
-                              <div className="relative w-16 h-16 flex items-center justify-center">
+                            <div className="flex flex-col items-center justify-center text-center gap-2">
+                              <div className="relative w-12 h-12 flex items-center justify-center">
                                 {/* Ripple effect */}
                                 <div className="absolute inset-0 rounded-full border border-indigo-100 animate-[ping_1.5s_infinite]" />
                                 <div className="absolute inset-2 rounded-full border border-indigo-200 animate-[ping_2s_infinite] delay-300" />
                                 
                                 {/* Inner spinning glowing indicator */}
                                 <div className="absolute inset-0 rounded-full border-2 border-slate-100 border-t-indigo-600 animate-spin" />
-                                <Sparkles className="w-6 h-6 text-indigo-600 animate-pulse" />
+                                <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" />
                               </div>
                               
-                              <div className="space-y-1">
-                                <span className="inline-flex px-2 py-0.5 rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-600 animate-pulse">
+                              <div className="space-y-0.5">
+                                <span className="inline-flex px-1.5 py-0.5 rounded-full bg-indigo-50 text-[9px] font-bold text-indigo-600 animate-pulse">
                                   解析阶段 {analysisStepIndex + 1}/4
                                 </span>
-                                <h4 className="text-xs font-bold text-slate-800 transition-all duration-300 max-w-xs leading-relaxed px-4">
+                                <h4 className="text-[11px] font-bold text-slate-700 transition-all duration-300 max-w-xs leading-relaxed px-2">
                                   {analysisStepIndex === 0 && "🔍 正在拉取最新的多模态大模型解析方案..."}
                                   {analysisStepIndex === 1 && "📐 智能标记地面、天花板及立面拐角定位点..."}
                                   {analysisStepIndex === 2 && "💡 分析环境漫反射、主要光源和地毯暗部细节..."}
@@ -635,7 +1554,7 @@ export default function App() {
                             </div>
 
                             {/* Checklist steps */}
-                            <div className="space-y-2.5 max-w-sm mx-auto w-full px-2">
+                            <div className="space-y-1.5 max-w-sm mx-auto w-full px-1">
                               {[
                                 "初始化AI视觉和空间关系解析模型",
                                 "判定并标记地平线、墙角以及透视比例参数",
@@ -647,7 +1566,7 @@ export default function App() {
                                 return (
                                   <div 
                                     key={idx} 
-                                    className={`flex items-center gap-3 p-2 rounded-xl transition-all duration-300 text-[11px] ${
+                                    className={`flex items-center gap-2.5 p-1.5 rounded-xl transition-all duration-300 text-[10px] sm:text-[11px] ${
                                       isDone ? "bg-emerald-50/50 text-emerald-800" : 
                                       isActive ? "bg-indigo-50/70 text-indigo-900 border border-indigo-100 shadow-sm shadow-indigo-100/35" : 
                                       "text-slate-400 opacity-60"
@@ -700,7 +1619,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {currentStep === "carpet" && (
+          {appMode === "engineer" && currentStep === "carpet" && (
             <motion.div
               key="step-carpet"
               initial={{ opacity: 0, y: 20 }}
@@ -835,24 +1754,24 @@ export default function App() {
                         )}
                         
                         {isAnalyzing ? (
-                          <div className="flex flex-col h-full justify-center py-4 space-y-6">
+                          <div className="flex flex-col items-center justify-start space-y-4 py-2">
                             {/* Animated Visual Loader */}
-                            <div className="flex flex-col items-center justify-center text-center gap-3">
-                              <div className="relative w-16 h-16 flex items-center justify-center">
+                            <div className="flex flex-col items-center justify-center text-center gap-2">
+                              <div className="relative w-12 h-12 flex items-center justify-center">
                                 {/* Ripple effect */}
                                 <div className="absolute inset-0 rounded-full border border-indigo-100 animate-[ping_1.5s_infinite]" />
                                 <div className="absolute inset-2 rounded-full border border-indigo-200 animate-[ping_2s_infinite] delay-300" />
                                 
                                 {/* Inner spinning glowing indicator */}
                                 <div className="absolute inset-0 rounded-full border-2 border-slate-100 border-t-indigo-600 animate-spin" />
-                                <Sparkles className="w-6 h-6 text-indigo-600 animate-pulse" />
+                                <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" />
                               </div>
                               
-                              <div className="space-y-1">
-                                <span className="inline-flex px-2 py-0.5 rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-600 animate-pulse">
+                              <div className="space-y-0.5">
+                                <span className="inline-flex px-1.5 py-0.5 rounded-full bg-indigo-50 text-[9px] font-bold text-indigo-600 animate-pulse">
                                   解析阶段 {analysisStepIndex + 1}/4
                                 </span>
-                                <h4 className="text-xs font-bold text-slate-800 transition-all duration-300 max-w-xs leading-relaxed px-4">
+                                <h4 className="text-[11px] font-bold text-slate-700 transition-all duration-300 max-w-xs leading-relaxed px-2">
                                   {analysisStepIndex === 0 && "🔍 正在读取地毯纤维与材质细节..."}
                                   {analysisStepIndex === 1 && "🎨 匹配微观纹理与图案对比度..."}
                                   {analysisStepIndex === 2 && "🧶 分析边缘收口与绒头工艺..."}
@@ -862,7 +1781,7 @@ export default function App() {
                             </div>
 
                             {/* Checklist steps */}
-                            <div className="space-y-2.5 max-w-sm mx-auto w-full px-2">
+                            <div className="space-y-1.5 max-w-sm mx-auto w-full px-1">
                               {[
                                 "初始化地毯纹理深度提取核",
                                 "色系区间、主色占比与细节密度计算",
@@ -874,7 +1793,7 @@ export default function App() {
                                 return (
                                   <div 
                                     key={idx} 
-                                    className={`flex items-center gap-3 p-2 rounded-xl transition-all duration-300 text-[11px] ${
+                                    className={`flex items-center gap-2.5 p-1.5 rounded-xl transition-all duration-300 text-[10px] sm:text-[11px] ${
                                       isDone ? "bg-emerald-50/50 text-emerald-800" : 
                                       isActive ? "bg-indigo-50/70 text-indigo-900 border border-indigo-100 shadow-sm shadow-indigo-100/35" : 
                                       "text-slate-400 opacity-60"
@@ -927,7 +1846,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {currentStep === "generate" && (
+          {appMode === "engineer" && currentStep === "generate" && (
             <motion.div
               key="step-generate"
               initial={{ opacity: 0, y: 10 }}
@@ -1135,7 +2054,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {currentStep === "result" && (
+          {appMode === "engineer" && currentStep === "result" && (
             <motion.div
               key="step-result"
               initial={{ opacity: 0 }}

@@ -25,6 +25,7 @@ async function startServer() {
     try {
       if (url.includes("/api/gemini")) {
         const apiKey = process.env.GEMINI_API_KEY;
+        console.log(`[DEBUG] GEMINI_API_KEY is present: ${!!apiKey}, length: ${apiKey ? apiKey.length : 0}, startsWith: ${apiKey ? apiKey.substring(0, 5) : ""}`);
         if (!apiKey) {
           return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
         }

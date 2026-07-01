@@ -2,5 +2,5 @@
   "name": "地毯试铺助手",
   "description": "智能房间风格分析与地毯试铺应用。通过AI分析房间装修风格，并将指定地毯完美融入场景。",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
