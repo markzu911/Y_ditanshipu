@@ -495,6 +495,7 @@ export default function App() {
           const styleDesc = selectedStyle.name + "：" + selectedStyle.desc;
           setRoomAnalysis(styleDesc);
           setPredefinedStyleAnalysis(styleDesc);
+          setUsePredefinedStyle(true);
           
           const assistantReply: ChatMessage = {
             id: `msg-asst-${Date.now()}`,
@@ -703,6 +704,7 @@ export default function App() {
         const styleDesc = "自定义风格：" + userInput;
         setRoomAnalysis(styleDesc);
         setPredefinedStyleAnalysis(styleDesc);
+        setUsePredefinedStyle(true);
         
         const assistantReply: ChatMessage = {
           id: `msg-asst-${Date.now()}`,
@@ -1052,13 +1054,15 @@ export default function App() {
                     <p className="text-[10px] text-slate-400">正在为您提供一对一铺装顾问服务</p>
                   </div>
                 </div>
-                <button 
-                  onClick={initAgentChat}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  <RefreshCcw className="w-3.5 h-3.5" />
-                  重置对话
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={initAgentChat}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors bg-white shadow-sm"
+                  >
+                    <RefreshCcw className="w-3.5 h-3.5" />
+                    重置对话
+                  </button>
+                </div>
               </div>
 
               {/* Message Streams */}
@@ -1626,6 +1630,7 @@ export default function App() {
                         const styleDesc = style.name + "：" + style.desc;
                         setRoomAnalysis(styleDesc);
                         setPredefinedStyleAnalysis(styleDesc);
+                        setUsePredefinedStyle(true);
                         setCurrentStep("carpet");
                       }}
                       className="bg-white border border-slate-200 rounded-2xl p-6 cursor-pointer hover:border-indigo-400 hover:shadow-xl hover:shadow-indigo-500/5 transition-all group"
