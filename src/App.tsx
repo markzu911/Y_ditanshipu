@@ -32,7 +32,9 @@ import {
   validateIsRoom,
   validateIsCarpet,
   GenerationParams,
-  parseParamsFromText
+  parseParamsFromText,
+  analyzeCarpetDescription,
+  analyzeRoomDescription
 } from "./services/geminiService";
 import { 
   launchTool, 
@@ -42,6 +44,141 @@ import {
   uploadResultImage,
   createRequestId
 } from "./services/saasService";
+
+function createDefaultCarpet(description: string): string {
+  if (typeof document === "undefined") return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = 400;
+  canvas.height = 400;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+
+  // Base colors depending on description
+  let baseColor = "#f5f2eb"; // cream
+  let patternColor = "#d6cbbe";
+  let accentColor = "#6366f1"; // indigo
+
+  const desc = description.toLowerCase();
+  if (desc.includes("中式") || desc.includes("山水") || desc.includes("古典")) {
+    baseColor = "#f4f1ea";
+    patternColor = "#8a7e72";
+    accentColor = "#c5a880"; // gold/bronze
+  } else if (desc.includes("现代") || desc.includes("几何") || desc.includes("极简")) {
+    baseColor = "#eaeaea";
+    patternColor = "#333333";
+    accentColor = "#10b981"; // emerald
+  } else if (desc.includes("复古") || desc.includes("红") || desc.includes("波斯")) {
+    baseColor = "#800020"; // burgundy
+    patternColor = "#d4af37"; // gold
+    accentColor = "#4a0404";
+  } else if (desc.includes("绿") || desc.includes("森林")) {
+    baseColor = "#2d4a43";
+    patternColor = "#d1e2db";
+    accentColor = "#bfdbfe";
+  } else if (desc.includes("蓝") || desc.includes("海洋")) {
+    baseColor = "#1e3a8a";
+    patternColor = "#93c5fd";
+    accentColor = "#fef08a";
+  }
+
+  // Draw base
+  ctx.fillStyle = baseColor;
+  ctx.fillRect(0, 0, 400, 400);
+
+  // Draw subtle texture (wool grains)
+  ctx.fillStyle = "rgba(0, 0, 0, 0.03)";
+  for (let i = 0; i < 5000; i++) {
+    const x = Math.random() * 400;
+    const y = Math.random() * 400;
+    const size = 1 + Math.random() * 2;
+    ctx.fillRect(x, y, size, size);
+  }
+
+  // Draw pattern depending on description
+  if (desc.includes("中式") || desc.includes("山水") || desc.includes("古典")) {
+    // Draw mountain silhouettes or zen circles
+    ctx.strokeStyle = patternColor;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    // Zen circle in center
+    ctx.arc(200, 200, 80, 0, Math.PI * 1.5);
+    ctx.stroke();
+
+    ctx.fillStyle = accentColor;
+    ctx.beginPath();
+    ctx.arc(200, 200, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Chinese landscape lines
+    ctx.strokeStyle = "rgba(138, 126, 114, 0.4)";
+    ctx.beginPath();
+    ctx.moveTo(50, 320);
+    ctx.quadraticCurveTo(150, 260, 250, 320);
+    ctx.quadraticCurveTo(320, 280, 350, 320);
+    ctx.stroke();
+  } else if (desc.includes("现代") || desc.includes("几何") || desc.includes("极简")) {
+    // Elegant interlocking geometry
+    ctx.strokeStyle = patternColor;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) {
+      ctx.strokeRect(50 + i * 20, 50 + i * 20, 300 - i * 40, 300 - i * 40);
+    }
+    // Diagonal accent line
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(40, 40);
+    ctx.lineTo(360, 360);
+    ctx.stroke();
+  } else if (desc.includes("复古") || desc.includes("波斯")) {
+    // Persian style borders and central medallion
+    ctx.strokeStyle = patternColor;
+    ctx.lineWidth = 10;
+    ctx.strokeRect(20, 20, 360, 360);
+
+    ctx.fillStyle = accentColor;
+    ctx.beginPath();
+    ctx.arc(200, 200, 50, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = patternColor;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(35, 35, 330, 330);
+  } else {
+    // Default: Cream/cozy style, simple grid or subtle lines
+    ctx.strokeStyle = patternColor;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 12]);
+    // Grid lines
+    for (let i = 1; i < 5; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * 80, 20);
+      ctx.lineTo(i * 80, 380);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(20, i * 80);
+      ctx.lineTo(380, i * 80);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    // Soft frame border
+    ctx.strokeStyle = "rgba(0,0,0,0.05)";
+    ctx.lineWidth = 15;
+    ctx.strokeRect(20, 20, 360, 360);
+  }
+
+  // Draw fringes on sides if relevant
+  ctx.fillStyle = "#e2dacf";
+  for (let i = 10; i < 390; i += 6) {
+    // Top fringes
+    ctx.fillRect(i, 0, 2, 8);
+    // Bottom fringes
+    ctx.fillRect(i, 392, 2, 8);
+  }
+
+  return canvas.toDataURL("image/jpeg");
+}
 
 type Step = "room" | "carpet" | "generate" | "result";
 type AppMode = "select" | "engineer" | "agent";
@@ -699,22 +836,274 @@ export default function App() {
     setChatMessages(prev => [...prev, newUserMsg]);
     setAgentInputMode("none");
 
-    if (agentInputMode === "custom-style-name") {
-      setTimeout(() => {
-        const styleDesc = "自定义风格：" + userInput;
-        setRoomAnalysis(styleDesc);
-        setPredefinedStyleAnalysis(styleDesc);
-        setUsePredefinedStyle(true);
+    const isBackgroundSelection = !roomImage && !usePredefinedStyle && !roomAnalysis;
+    const isStyleSelection = usePredefinedStyle && !roomAnalysis;
+    const isCarpetUpload = (roomImage || usePredefinedStyle) && (!carpetImage || !carpetAnalysis);
+
+    if (isBackgroundSelection) {
+      // Stage 1: Room background selection or upload request
+      const isUploadRequest = /上传|照片|拍照|原图|实景|相机|图片|图片上传|upload|photo|image|camera/i.test(userInput);
+      const isPredefinedStylesRequest = /特定风格|装修风格|自带风格|预置|特定装修风格|选风格|选择风格/i.test(userInput);
+
+      if (isUploadRequest) {
+        setTimeout(() => {
+          handleAgentOption("opt-room-upload", "📷 上传我的房间照片");
+        }, 400);
+      } else if (isPredefinedStylesRequest) {
+        setTimeout(() => {
+          handleAgentOption("opt-room-style", "🎨 选择特定装修风格");
+        }, 400);
+      } else {
+        // Check for quick matches of style names
+        let foundStyleId = "";
+        let foundStyleLabel = "";
         
-        const assistantReply: ChatMessage = {
-          id: `msg-asst-${Date.now()}`,
+        if (userInput.includes("奶油")) {
+          foundStyleId = "opt-style-cream";
+          foundStyleLabel = "奶油风";
+        } else if (userInput.includes("现代") || userInput.includes("简约")) {
+          foundStyleId = "opt-style-modern";
+          foundStyleLabel = "现代简约";
+        } else if (userInput.includes("北欧")) {
+          foundStyleId = "opt-style-nordic";
+          foundStyleLabel = "北欧风";
+        } else if (userInput.includes("中式")) {
+          foundStyleId = "opt-style-new-chinese";
+          foundStyleLabel = "新中式";
+        } else if (userInput.includes("侘寂")) {
+          foundStyleId = "opt-style-wabi-sabi";
+          foundStyleLabel = "侘寂风";
+        } else if (userInput.includes("轻奢")) {
+          foundStyleId = "opt-style-light-luxury";
+          foundStyleLabel = "轻奢风";
+        }
+
+        if (foundStyleId) {
+          setTimeout(() => {
+            handleAgentOption(foundStyleId, foundStyleLabel);
+          }, 400);
+        } else {
+          // Process as raw custom style name via Gemini to draft professional analysis report
+          const thinkingId = `thinking-${Date.now()}`;
+          setChatMessages(prev => [...prev, { 
+            id: thinkingId, 
+            sender: "assistant", 
+            text: `🔍 正在为您规划和解析「${userInput}」风格的室内空间、环境光影及三维透视结构...` 
+          }]);
+
+          try {
+            const analysis = await analyzeRoomDescription(userInput);
+            const styleDesc = "自定义风格：" + userInput + " (" + analysis + ")";
+            setRoomAnalysis(styleDesc);
+            setPredefinedStyleAnalysis(styleDesc);
+            setUsePredefinedStyle(true);
+            setCurrentStep("carpet");
+
+            setTimeout(() => {
+              const assistantReply: ChatMessage = {
+                id: `msg-asst-${Date.now()}`,
+                sender: "assistant",
+                text: `✨ 很好，我已根据您的描述，为您成功规划和定制了 **${userInput}** 渲染场景：\n\n**🔍 场景设计方案：**\n${analysis}\n\n接下来，请**上传您的地毯图**，或者直接在此输入文字描述您想要的地毯外观（如「绿色的几何图案地毯」），我帮您进行智能编织：`,
+                type: "upload_carpet"
+              };
+              setChatMessages(prev => prev.filter(m => m.id !== thinkingId).concat(assistantReply));
+            }, 400);
+          } catch (err) {
+            console.error("Failed to analyze room description:", err);
+            const styleDesc = "自定义风格：" + userInput;
+            setRoomAnalysis(styleDesc);
+            setPredefinedStyleAnalysis(styleDesc);
+            setUsePredefinedStyle(true);
+            setCurrentStep("carpet");
+
+            setTimeout(() => {
+              const assistantReply: ChatMessage = {
+                id: `msg-asst-${Date.now()}`,
+                sender: "assistant",
+                text: `✨ 很好，已成功为您量身定制 **${userInput}** 背景场景。\n\n接下来，请**上传或拖拽您的地毯图**，或直接输入文字描述地毯图案，我将帮您提取材质特性与纹理分布：`,
+                type: "upload_carpet"
+              };
+              setChatMessages(prev => prev.filter(m => m.id !== thinkingId).concat(assistantReply));
+            }, 400);
+          }
+        }
+      }
+    } else if (isStyleSelection) {
+      // Stage 2: In style selection menu, but room analysis not done yet
+      let foundStyleId = "";
+      let foundStyleLabel = "";
+      
+      if (userInput.includes("奶油")) {
+        foundStyleId = "opt-style-cream";
+        foundStyleLabel = "奶油风";
+      } else if (userInput.includes("现代") || userInput.includes("简约")) {
+        foundStyleId = "opt-style-modern";
+        foundStyleLabel = "现代简约";
+      } else if (userInput.includes("北欧")) {
+        foundStyleId = "opt-style-nordic";
+        foundStyleLabel = "北欧风";
+      } else if (userInput.includes("中式")) {
+        foundStyleId = "opt-style-new-chinese";
+        foundStyleLabel = "新中式";
+      } else if (userInput.includes("侘寂")) {
+        foundStyleId = "opt-style-wabi-sabi";
+        foundStyleLabel = "侘寂风";
+      } else if (userInput.includes("轻奢")) {
+        foundStyleId = "opt-style-light-luxury";
+        foundStyleLabel = "轻奢风";
+      } else if (userInput.includes("自定义") || userInput.includes("自己设计")) {
+        foundStyleId = "opt-style-custom";
+        foundStyleLabel = "✨ 自定义设计风格...";
+      }
+
+      if (foundStyleId) {
+        setTimeout(() => {
+          handleAgentOption(foundStyleId, foundStyleLabel);
+        }, 400);
+      } else {
+        // Treat as direct custom style name
+        const thinkingId = `thinking-${Date.now()}`;
+        setChatMessages(prev => [...prev, { 
+          id: thinkingId, 
+          sender: "assistant", 
+          text: `🔍 正在为您规划和解析「${userInput}」风格的室内空间、环境光影及三维透视结构...` 
+        }]);
+
+        try {
+          const analysis = await analyzeRoomDescription(userInput);
+          const styleDesc = "自定义风格：" + userInput + " (" + analysis + ")";
+          setRoomAnalysis(styleDesc);
+          setPredefinedStyleAnalysis(styleDesc);
+          setUsePredefinedStyle(true);
+          setCurrentStep("carpet");
+
+          setTimeout(() => {
+            const assistantReply: ChatMessage = {
+              id: `msg-asst-${Date.now()}`,
+              sender: "assistant",
+              text: `✨ 很好，我已根据您的描述，为您成功规划和定制了 **${userInput}** 渲染场景：\n\n**🔍 场景设计方案：**\n${analysis}\n\n接下来，请**上传您的地毯图**，或者直接在此输入文字描述您想要的地毯外观，我帮您进行智能编织：`,
+              type: "upload_carpet"
+            };
+            setChatMessages(prev => prev.filter(m => m.id !== thinkingId).concat(assistantReply));
+          }, 400);
+        } catch (err) {
+          console.error("Failed to analyze room description:", err);
+          const styleDesc = "自定义风格：" + userInput;
+          setRoomAnalysis(styleDesc);
+          setPredefinedStyleAnalysis(styleDesc);
+          setUsePredefinedStyle(true);
+          setCurrentStep("carpet");
+
+          setTimeout(() => {
+            const assistantReply: ChatMessage = {
+              id: `msg-asst-${Date.now()}`,
+              sender: "assistant",
+              text: `✨ 很好，已成功为您量身定制 **${userInput}** 背景场景。\n\n接下来，请**上传或拖拽您的地毯图（原图或样本）**，我将帮您提取材质特性与纹理分布：`,
+              type: "upload_carpet"
+            };
+            setChatMessages(prev => prev.filter(m => m.id !== thinkingId).concat(assistantReply));
+          }, 400);
+        }
+      }
+    } else if (isCarpetUpload) {
+      // Stage 3: Carpet upload or text-based custom carpet creation
+      const isDefaultCarpet = /经典地毯|默认|经典羊毛|随便配个|默认地毯|用经典的/i.test(userInput);
+      
+      if (isDefaultCarpet) {
+        setTimeout(() => {
+          const defaultCarpetImg = createDefaultCarpet("classic");
+          setCarpetImage(defaultCarpetImg);
+          const analysis = "材质与边缘：经典羊毛手工编织，平整无流苏边缘。\n视觉：温馨象牙白，带有精致经纬编织凹凸纹理。";
+          setCarpetAnalysis(analysis);
+          setCurrentStep("generate");
+          
+          setChatMessages(prev => [...prev, {
+            id: `msg-success-carpet-${Date.now()}`,
+            sender: "assistant",
+            text: `🎯 已为您智能配置了**经典羊毛编织地毯**作为铺装样本：\n\n**🔍 地毯材质特征报告：**\n${analysis}`
+          }, {
+            id: `msg-param-config-${Date.now()}`,
+            sender: "assistant",
+            text: `在开始试铺前，您可以根据需要，在下方调整地毯铺装的渲染参数（比例、清晰度、是否需要模特等）：`,
+            type: "param_config"
+          }, {
+            id: `msg-success-next-${Date.now()}`,
+            sender: "assistant",
+            text: `参数配置完成后，您也可以直接在对话框中告诉我您的需求（如「我要16:9比例，加个年轻女模特，帮我渲染」），或者直接点击下方按钮开启 AI 极速渲染：`,
+            type: "options",
+            options: [
+              { id: "opt-start-render", label: "🚀 开启智能极速渲染" }
+            ]
+          }]);
+          setAgentInputMode("render-params-or-start");
+        }, 400);
+      } else {
+        // Draw a customized styled carpet in a canvas, and run analyzeCarpetDescription
+        const thinkingId = `thinking-${Date.now()}`;
+        setChatMessages(prev => [...prev, {
+          id: thinkingId,
           sender: "assistant",
-          text: `✨ 很好，已成功为您量身定制 **${userInput}** 背景场景。\n\n接下来，请**上传或拖拽您的地毯图（原图或样本）**，我将帮您提取材质特性与纹理分布：`,
-          type: "upload_carpet"
-        };
-        setChatMessages(prev => [...prev, assistantReply]);
-      }, 400);
-    } else if (agentInputMode === "render-params-or-start") {
+          text: `🧶 正在为您智能编织并分析「${userInput}」地毯面料与肌理纤维...`
+        }]);
+
+        try {
+          const generatedCarpetImg = createDefaultCarpet(userInput);
+          setCarpetImage(generatedCarpetImg);
+          
+          const analysis = await analyzeCarpetDescription(userInput);
+          setCarpetAnalysis(analysis);
+          setCurrentStep("generate");
+          
+          setChatMessages(prev => prev.filter(m => m.id !== thinkingId).concat({
+            id: `msg-success-carpet-${Date.now()}`,
+            sender: "assistant",
+            text: `🎯 成功根据您的描述「${userInput}」智能设计并生成了地毯面料样式：\n\n**🔍 地毯材质特征报告：**\n${analysis}`
+          }, {
+            id: `msg-param-config-${Date.now()}`,
+            sender: "assistant",
+            text: `在开始试铺前，您可以根据需要，在下方调整地毯铺装的渲染参数（比例、清晰度、是否需要模特等）：`,
+            type: "param_config"
+          }, {
+            id: `msg-success-next-${Date.now()}`,
+            sender: "assistant",
+            text: `参数配置完成后，您也可以直接在对话框中告诉我您的需求（如「我要16:9比例，加个年轻女模特，帮我渲染」），或者直接点击下方按钮开启 AI 极速渲染：`,
+            type: "options",
+            options: [
+              { id: "opt-start-render", label: "🚀 开启智能极速渲染" }
+            ]
+          }));
+          setAgentInputMode("render-params-or-start");
+        } catch (err) {
+          console.error("Failed to analyze carpet description:", err);
+          const generatedCarpetImg = createDefaultCarpet(userInput);
+          setCarpetImage(generatedCarpetImg);
+          const analysis = `材质与边缘：定制平织面料，平整无流苏边缘。\n视觉：${userInput}图案。`;
+          setCarpetAnalysis(analysis);
+          setCurrentStep("generate");
+          
+          setChatMessages(prev => prev.filter(m => m.id !== thinkingId).concat({
+            id: `msg-success-carpet-${Date.now()}`,
+            sender: "assistant",
+            text: `🎯 成功根据您的描述「${userInput}」设计并生成了地毯面料样式：\n\n**🔍 地毯材质特征报告：**\n${analysis}`
+          }, {
+            id: `msg-param-config-${Date.now()}`,
+            sender: "assistant",
+            text: `在开始试铺前，您可以根据需要，在下方调整地毯铺装的渲染参数（比例、清晰度、是否需要模特等）：`,
+            type: "param_config"
+          }, {
+            id: `msg-success-next-${Date.now()}`,
+            sender: "assistant",
+            text: `参数配置完成后，您也可以直接在对话框中告诉我您的需求（如「我要16:9比例，加个年轻女模特，帮我渲染」），或者直接点击下方按钮开启 AI 极速渲染：`,
+            type: "options",
+            options: [
+              { id: "opt-start-render", label: "🚀 开启智能极速渲染" }
+            ]
+          }));
+          setAgentInputMode("render-params-or-start");
+        }
+      }
+    } else {
+      // Stage 4: Parameter configuration and starting generation
       const thinkingMsgId = `msg-thinking-${Date.now()}`;
       setChatMessages(prev => [...prev, {
         id: thinkingMsgId,
@@ -1522,39 +1911,35 @@ export default function App() {
 
               {/* Chat Input area */}
               <div className="border-t border-slate-150 bg-white p-3">
-                {agentInputMode !== "none" ? (
-                  <form 
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleAgentSubmitText();
-                    }}
-                    className="flex items-center gap-2"
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAgentSubmitText();
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    type="text"
+                    value={agentTextValue}
+                    onChange={(e) => setAgentTextValue(e.target.value)}
+                    placeholder={
+                      !roomImage && !usePredefinedStyle
+                        ? "输入如「奶油风」或「上传房间照片」..."
+                        : !(carpetImage && carpetAnalysis)
+                        ? "上传地毯，或输入「经典地毯」或描述想要的地毯样式..."
+                        : "输入如「比例16:9，添加女性模特」或「开始渲染」..."
+                    }
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-700 font-medium placeholder-slate-400"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={!agentTextValue.trim()}
+                    className="p-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-xl text-xs font-bold transition-all shrink-0 shadow-sm disabled:shadow-none flex items-center justify-center"
                   >
-                    <input
-                      type="text"
-                      value={agentTextValue}
-                      onChange={(e) => setAgentTextValue(e.target.value)}
-                      placeholder="请输入自定义的设计风格名称或详细描述..."
-                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-700 font-medium placeholder-slate-400"
-                      autoFocus
-                    />
-                    <button
-                      type="submit"
-                      disabled={!agentTextValue.trim()}
-                      className="p-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-xl text-xs font-bold transition-all shrink-0 shadow-sm disabled:shadow-none flex items-center justify-center"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </form>
-                ) : (
-                  <div className="flex items-center justify-between text-xs text-slate-400 py-1 px-2">
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <Bot className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
-                      智能对话处于引导模式下，您可以直接点击上方选项或上传对应图片
-                    </span>
-                    <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full leading-none">全流程护航</span>
-                  </div>
-                )}
+                    <Send className="w-4 h-4" />
+                  </button>
+                </form>
               </div>
             </motion.div>
           )}

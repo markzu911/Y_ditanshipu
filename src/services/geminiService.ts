@@ -693,3 +693,51 @@ ${JSON.stringify(currentParams)}
   });
 }
 
+/**
+ * Generates a professional carpet analysis from user's text description
+ */
+export async function analyzeCarpetDescription(description: string): Promise<string> {
+  return withRetry(async () => {
+    const response = await callGeminiApi("gemini-3.5-flash", {
+      parts: [
+        {
+          text: `用户输入了一段关于他想要的地毯款式的文字描述：“${description}”。
+请根据该描述，撰写一份符合铺装系统要求的专业地毯特征分析报告。
+主要内容：
+- 材质与边缘：简述材质特点（如羊毛、棉麻、高低毛圈等），并明确说明边缘是否有流苏 (Fringes/Tassels) 或为无流苏的平整边缘 (Clean edges)。
+- 视觉：详细描述地毯的颜色、图案、纹理设计。
+
+要求：
+1. 不要使用 Markdown 格式（不要使用 #，** 等格式标记）。
+2. 保持绝对简练，直接输出分析两栏，每栏简明扼要。`,
+        },
+      ],
+    });
+    return response.text || "材质与边缘：柔软长毛绒，无流苏平整边缘。\n视觉：根据用户偏好定制。";
+  });
+}
+
+/**
+ * Generates a professional room analysis from user's custom style description
+ */
+export async function analyzeRoomDescription(styleName: string): Promise<string> {
+  return withRetry(async () => {
+    const response = await callGeminiApi("gemini-3.5-flash", {
+      parts: [
+        {
+          text: `用户输入了一个他想要的室内空间或装修风格描述：“${styleName}”。
+请为该风格生成一段专业的室内空间分析报告，以用于地毯实景渲染。
+请包括以下维度：
+- 房间布局：根据该风格设想一个完美对应的客厅或卧室布局。
+- 房间家具：列出该风格最具代表性的家具及材质（例如：科技布布艺沙发、大理石茶几、黄铜装饰等）。
+- 装修风格：该风格的经典特征和色彩调性。
+
+要求：不要使用 Markdown 格式（不要包含 #，** 等标记），不要换行过多，请使用简短的短句直接输出。`,
+        },
+      ],
+    });
+    return response.text || `房间布局：开阔客厅设计。\n房间家具：极简设计沙发与茶几。\n装修风格：${styleName}。`;
+  });
+}
+
+
