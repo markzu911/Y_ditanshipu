@@ -173,8 +173,13 @@ export async function generateResultPrompt(
   saasPrompt?: string[]
 ): Promise<string> {
   return withRetry(async () => {
-    // Check if it's "Cream Style" to provide a very specific high-end description
+    // Check style keys to provide extremely specific high-end architectural descriptions
     const isCreamStyle = roomAnalysis.includes("奶油风") || roomAnalysis.includes("Creamy") || roomAnalysis.includes("Cream Style");
+    const isModernStyle = roomAnalysis.includes("现代简约") || roomAnalysis.includes("Modern");
+    const isNordicStyle = roomAnalysis.includes("北欧") || roomAnalysis.includes("Nordic");
+    const isNewChineseStyle = roomAnalysis.includes("新中式") || roomAnalysis.includes("Chinese");
+    const isWabiSabiStyle = roomAnalysis.includes("侘寂") || roomAnalysis.includes("Wabi");
+    const isLightLuxuryStyle = roomAnalysis.includes("轻奢") || roomAnalysis.includes("Luxury");
     
     let specificStyleContext = "";
     if (isCreamStyle) {
@@ -185,6 +190,52 @@ export async function generateResultPrompt(
       - Furniture: A iconic ivory-colored Togo-style tufted sofa (very important). A minimalist low-profile white coffee table. 
       - Lighting & Decor: A distinctive tall, wavy floor lamp (squiggled shape) providing soft ambient light. 
       - Vibe: Artistic, warm, sophisticated, and extremely clean.
+      `;
+    } else if (isModernStyle) {
+      specificStyleContext = `
+      IMPORTANT STYLE DIRECTION (Modern Minimalist Style / 现代简约):
+      - Architectural Features: Pure white or light gray walls, large floor-to-ceiling windows with abundant daylight. Ultra-clean straight architectural lines.
+      - Flooring: Matte grey concrete, large-format grey porcelain tiles, or uniform light grey hardwood.
+      - Furniture: Sleek, low-profile modular fabric or leather sofa (charcoal gray, beige, or off-white), a linear modern metal or glass coffee table, minimalist functional decor.
+      - Vibe: Clean, spacious, functional, premium, neat, and highly balanced.
+      `;
+    } else if (isNordicStyle) {
+      specificStyleContext = `
+      IMPORTANT STYLE DIRECTION (Nordic Style / 北欧风):
+      - Architectural Features: White walls, large bright windows letting in lots of natural sunlight, cozy wooden columns or beams.
+      - Flooring: Natural light-colored oak or white-washed wooden floorboards.
+      - Furniture: Solid wood furniture with simple lines, a cozy soft light gray fabric sofa, wooden legs, green indoor potted plants (like a fiddle-leaf fig or monstera).
+      - Vibe: Warm, natural, airy, peaceful, cozy, and wood-toned (Hygge).
+      `;
+    } else if (isNewChineseStyle) {
+      specificStyleContext = `
+      IMPORTANT STYLE DIRECTION (New Chinese Style / 新中式):
+      - Architectural Features: Symmetric layouts, traditional wooden window lattice patterns, ink wash painting murals or clean white walls with mahogany wood frames, sophisticated screen partitions.
+      - Flooring: Deep-colored luxury stone flooring or dark hardwood flooring.
+      - Furniture: High-end dark walnut or mahogany solid wood framework chairs and sofa with linen cushions, low solid wood tea table with traditional tea-ware, delicate brass details.
+      - Vibe: Zen, dignified, elegant, cultural, balanced, and serene.
+      `;
+    } else if (isWabiSabiStyle) {
+      specificStyleContext = `
+      IMPORTANT STYLE DIRECTION (Wabi-sabi Style / 侘寂风):
+      - Architectural Features: Textured micro-cement walls (wabi-sabi stucco, raw earthy paint), seamless plaster floor, curved wall corners, niches carved into walls.
+      - Flooring: Seamless beige or light gray micro-cement plaster flooring.
+      - Furniture: Raw edge wood block coffee table, rough organic shapes, a cozy low-profile linen sofa in off-white, dried branches in ceramic vases, handmade stoneware.
+      - Vibe: Pure, organic, weathered, rustic, quiet, zen, and minimalist.
+      `;
+    } else if (isLightLuxuryStyle) {
+      specificStyleContext = `
+      IMPORTANT STYLE DIRECTION (Modern Light Luxury Style / 轻奢风):
+      - Architectural Features: High ceilings with golden brass metallic trim lines on walls, large white marble feature walls, decorative crystal or modern ring chandeliers.
+      - Flooring: Polished white marble or high-gloss porcelain tiles with elegant gray veins.
+      - Furniture: Luxurious velvet-upholstered custom sofa (emerald green, royal blue, or premium gray) with polished brass feet, marble-topped coffee table with steel legs, upscale gold metallic decor.
+      - Vibe: Glamorous, sleek, expensive, modern-chic, and upscale.
+      `;
+    } else if (roomAnalysis) {
+      specificStyleContext = `
+      IMPORTANT CUSTOM/CONVERSATIONAL STYLE DIRECTION:
+      The design style specified is: "${roomAnalysis}".
+      Please carefully interpret the core elements of this style (typical furniture, materials, colors, lighting, and layout) and generate a highly characteristic, high-end professional indoor scene that strictly matches this style. Do not make up a generic room; make it look exactly like a masterpiece of the requested style.
       `;
     }
 
@@ -202,7 +253,7 @@ ${keywords}
 ${specificStyleContext}
 
 生图核心要求（必须严格遵守）：
-1. ${isUploadedRoom ? "生成的场景必须严格克隆（Strictly Clone）原房间照片的布局、家具、门窗 and 建筑结构。禁止添加或移动大型家具。" : "请基于上述风格分析构建一个全新的、高水准的室内场景。"}
+1. ${isUploadedRoom ? "生成的场景必须严格克隆（Strictly Clone）原房间照片的布局、家具、门窗 and 建筑结构。禁止添加或移动大型家具。" : "请基于上述风格分析构建一个全新的、高水准的、完美契合上述选定设计风格的室内场景，风格特征、家具和装饰细节必须100%符合其定义，严禁生成非该风格的内容。"}
 2. 地毯比例（CRITICAL）：地毯必须占据地板上合理且显眼的比例，通常应延伸至沙发下方并位于茶几中心，比例需与家具大小完美协调，避免出现过小或比例失调的情况。
 3. 地毯一致性：图案、颜色和纹理必须与地毯分析描述 100% 吻合。它是画面中的绝对核心。
 4. 采用专业室内摄影风格（High-end Architectural Photography），光影自然。

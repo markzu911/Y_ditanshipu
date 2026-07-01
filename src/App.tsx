@@ -499,7 +499,7 @@ export default function App() {
           const assistantReply: ChatMessage = {
             id: `msg-asst-${Date.now()}`,
             sender: "assistant",
-            text: `✨ 很好，已成功为您加载预设的「${selectedStyle.name}」背景场景。\n\n接下来，请上传或拖拽您的地毯图（原图或样本），我将帮您提取材质特性与纹理分布：`,
+            text: `✨ 很好，已成功为您加载预设的「${selectedStyle.name}」背景场景。\n\n💡 **风格介绍**：\n${selectedStyle.desc}\n\n接下来，请上传或拖拽您的地毯图（原图或样本），我将帮您提取材质特性与纹理分布：`,
             type: "upload_carpet"
           };
           setChatMessages(prev => [...prev, assistantReply]);
