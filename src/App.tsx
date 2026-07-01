@@ -187,7 +187,7 @@ interface ChatMessage {
   id: string;
   sender: "assistant" | "user";
   text?: string;
-  type?: "text" | "options" | "upload_room" | "upload_carpet" | "room_analysis" | "carpet_analysis" | "generating" | "result" | "param_config";
+  type?: "text" | "options" | "upload_room" | "upload_carpet" | "room_analysis" | "carpet_analysis" | "generating" | "result" | "param_config" | "thinking";
   options?: { id: string; label: string }[];
   data?: any;
 }
@@ -580,15 +580,17 @@ export default function App() {
     }
   };
 
-  const handleAgentOption = async (optionId: string, optionLabel: string) => {
+  const handleAgentOption = async (optionId: string, optionLabel: string, skipUserMsg = false) => {
     // Add user's selection to chat
-    const newUserMsg: ChatMessage = {
-      id: `msg-user-${Date.now()}`,
-      sender: "user",
-      text: optionLabel
-    };
-    
-    setChatMessages(prev => [...prev, newUserMsg]);
+    if (!skipUserMsg) {
+      const newUserMsg: ChatMessage = {
+        id: `msg-user-${Date.now()}`,
+        sender: "user",
+        text: optionLabel
+      };
+      
+      setChatMessages(prev => [...prev, newUserMsg]);
+    }
 
     // Simulate assistant replying
     setTimeout(async () => {
@@ -793,7 +795,7 @@ export default function App() {
             text: `在开始试铺前，您可以根据需要，在下方调整地毯铺装的渲染参数（比例、清晰度、是否需要模特等）：`,
             type: "param_config"
           }, {
-            id: `msg-success-${Date.now()}`,
+            id: `msg-success-next-${Date.now()}`,
             sender: "assistant",
             text: `参数配置完成后，您也可以直接在对话框中告诉我您的需求（如「我要16:9比例，加个年轻女模特，帮我渲染」），或者直接点击下方按钮开启 AI 极速渲染：`,
             type: "options",
@@ -854,33 +856,34 @@ export default function App() {
           handleAgentOption("opt-room-style", "🎨 选择特定装修风格");
         }, 400);
       } else {
-        // Check for quick matches of style names
+        // Check for quick matches of style names (exact or near matches only)
         let foundStyleId = "";
         let foundStyleLabel = "";
         
-        if (userInput.includes("奶油")) {
+        const cleanInput = userInput.trim().replace(/风$/, "");
+        if (cleanInput === "奶油") {
           foundStyleId = "opt-style-cream";
           foundStyleLabel = "奶油风";
-        } else if (userInput.includes("现代") || userInput.includes("简约")) {
+        } else if (cleanInput === "现代" || cleanInput === "简约" || cleanInput === "现代简约") {
           foundStyleId = "opt-style-modern";
           foundStyleLabel = "现代简约";
-        } else if (userInput.includes("北欧")) {
+        } else if (cleanInput === "北欧") {
           foundStyleId = "opt-style-nordic";
           foundStyleLabel = "北欧风";
-        } else if (userInput.includes("中式")) {
-          foundStyleId = "opt-style-new-chinese";
+        } else if (cleanInput === "新中式" || cleanInput === "中式") {
+          foundStyleId = "opt-style-newchinese";
           foundStyleLabel = "新中式";
-        } else if (userInput.includes("侘寂")) {
-          foundStyleId = "opt-style-wabi-sabi";
+        } else if (cleanInput === "侘寂") {
+          foundStyleId = "opt-style-wabisabi";
           foundStyleLabel = "侘寂风";
-        } else if (userInput.includes("轻奢")) {
-          foundStyleId = "opt-style-light-luxury";
+        } else if (cleanInput === "轻奢") {
+          foundStyleId = "opt-style-lightluxury";
           foundStyleLabel = "轻奢风";
         }
 
         if (foundStyleId) {
           setTimeout(() => {
-            handleAgentOption(foundStyleId, foundStyleLabel);
+            handleAgentOption(foundStyleId, foundStyleLabel, true);
           }, 400);
         } else {
           // Process as raw custom style name via Gemini to draft professional analysis report
@@ -888,7 +891,8 @@ export default function App() {
           setChatMessages(prev => [...prev, { 
             id: thinkingId, 
             sender: "assistant", 
-            text: `🔍 正在为您规划和解析「${userInput}」风格的室内空间、环境光影及三维透视结构...` 
+            text: `🔍 正在为您规划和解析「${userInput}」风格的室内空间、环境光影及三维透视结构，请稍候...`,
+            type: "thinking"
           }]);
 
           try {
@@ -933,23 +937,24 @@ export default function App() {
       let foundStyleId = "";
       let foundStyleLabel = "";
       
-      if (userInput.includes("奶油")) {
+      const cleanInput = userInput.trim().replace(/风$/, "");
+      if (cleanInput === "奶油") {
         foundStyleId = "opt-style-cream";
         foundStyleLabel = "奶油风";
-      } else if (userInput.includes("现代") || userInput.includes("简约")) {
+      } else if (cleanInput === "现代" || cleanInput === "简约" || cleanInput === "现代简约") {
         foundStyleId = "opt-style-modern";
         foundStyleLabel = "现代简约";
-      } else if (userInput.includes("北欧")) {
+      } else if (cleanInput === "北欧") {
         foundStyleId = "opt-style-nordic";
         foundStyleLabel = "北欧风";
-      } else if (userInput.includes("中式")) {
-        foundStyleId = "opt-style-new-chinese";
+      } else if (cleanInput === "新中式" || cleanInput === "中式") {
+        foundStyleId = "opt-style-newchinese";
         foundStyleLabel = "新中式";
-      } else if (userInput.includes("侘寂")) {
-        foundStyleId = "opt-style-wabi-sabi";
+      } else if (cleanInput === "侘寂") {
+        foundStyleId = "opt-style-wabisabi";
         foundStyleLabel = "侘寂风";
-      } else if (userInput.includes("轻奢")) {
-        foundStyleId = "opt-style-light-luxury";
+      } else if (cleanInput === "轻奢") {
+        foundStyleId = "opt-style-lightluxury";
         foundStyleLabel = "轻奢风";
       } else if (userInput.includes("自定义") || userInput.includes("自己设计")) {
         foundStyleId = "opt-style-custom";
@@ -958,7 +963,7 @@ export default function App() {
 
       if (foundStyleId) {
         setTimeout(() => {
-          handleAgentOption(foundStyleId, foundStyleLabel);
+          handleAgentOption(foundStyleId, foundStyleLabel, true);
         }, 400);
       } else {
         // Treat as direct custom style name
@@ -966,7 +971,8 @@ export default function App() {
         setChatMessages(prev => [...prev, { 
           id: thinkingId, 
           sender: "assistant", 
-          text: `🔍 正在为您规划和解析「${userInput}」风格的室内空间、环境光影及三维透视结构...` 
+          text: `🔍 正在为您规划 and 解析「${userInput}」风格的室内空间、环境光影及三维透视结构，请稍候...`,
+          type: "thinking"
         }]);
 
         try {
@@ -1043,7 +1049,8 @@ export default function App() {
         setChatMessages(prev => [...prev, {
           id: thinkingId,
           sender: "assistant",
-          text: `🧶 正在为您智能编织并分析「${userInput}」地毯面料与肌理纤维...`
+          text: `🧶 正在为您智能编织并分析「${userInput}」地毯面料与肌理纤维，请稍候...`,
+          type: "thinking"
         }]);
 
         try {
@@ -1477,6 +1484,18 @@ export default function App() {
                               : "bg-indigo-600 text-white rounded-tr-none"
                           }`}>
                             {msg.text}
+                          </div>
+                        )}
+
+                        {/* Thinking animation loader */}
+                        {msg.type === "thinking" && (
+                          <div className="flex items-center gap-1.5 px-1 py-1 text-slate-400">
+                            <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin" />
+                            <div className="flex gap-1">
+                              <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                              <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                              <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" />
+                            </div>
                           </div>
                         )}
 
